@@ -8,13 +8,14 @@
   ],
   "scripts": {
     "dev": "npm run dev -w apps/web",
-    "build": "npm run build -w apps/web",
+    "build": "npm run build -w apps/web && node scripts/build-functions.mjs",
     "preview": "npm run preview -w apps/web",
     "test:unit": "vitest run",
     "test:e2e": "playwright test"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",
+    "esbuild": "0.28.2",
     "vitest": "5.0.3"
   }
 }

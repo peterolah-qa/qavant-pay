@@ -7,7 +7,6 @@
 
 [functions]
   directory = "netlify/functions"
-  node_bundler = "esbuild"
 
 # ── API routes (specific first, first match wins) ──
 [[redirects]]
