@@ -1,34 +1,34 @@
-// TEMPORARY diagnostic (remove after investigation): does Netlify Blobs give us ETags
-// and does it enforce conditional writes in this environment?
+// TEMPORARY diagnostic (remove after investigation): are Netlify Blobs conditional writes
+// ATOMIC under concurrency? 10 writes race with the same ETag – exactly 1 may succeed.
 import { getStore } from '@netlify/blobs'
+
+const PARALLEL = 10
+const ROUNDS = 5
 
 export default async () => {
   const store = getStore({ name: 'diagnostics', consistency: 'strong' })
-  const key = `probe-${crypto.randomUUID()}`
-  const steps: Record<string, unknown> = {}
+  const rounds = []
 
-  steps.createNew = await store.setJSON(key, { v: 1 }, { onlyIfNew: true })
-  steps.createAgainMustFail = await store.setJSON(key, { v: 99 }, { onlyIfNew: true })
+  for (let round = 1; round <= ROUNDS; round++) {
+    const key = `race-${crypto.randomUUID()}`
+    await store.setJSON(key, { writer: 'initial' }, { onlyIfNew: true })
+    const base = await store.getWithMetadata(key, { type: 'json' })
 
-  const read = await store.getWithMetadata(key, { type: 'json' })
-  steps.read = { data: read?.data, etag: read?.etag ?? 'MISSING' }
+    const results = await Promise.all(
+      Array.from({ length: PARALLEL }, (_, i) =>
+        store.setJSON(key, { writer: `w${i}` }, { onlyIfMatch: base!.etag! }),
+      ),
+    )
+    const winners = results.flatMap((r, i) => (r.modified ? [`w${i}`] : []))
+    const final = (await store.get(key, { type: 'json' })) as { writer: string }
 
-  if (read?.etag) {
-    steps.writeWithFreshEtagMustSucceed = await store.setJSON(key, { v: 2 }, { onlyIfMatch: read.etag })
-    steps.writeWithStaleEtagMustFail = await store.setJSON(key, { v: 3 }, { onlyIfMatch: read.etag })
+    rounds.push({ round, successfulWrites: winners.length, winners, finalValue: final.writer })
+    await store.delete(key)
   }
-  steps.writeWithBogusEtagMustFail = await store.setJSON(key, { v: 4 }, { onlyIfMatch: '"bogus"' })
-  steps.final = await store.get(key, { type: 'json' })
 
-  const raw = process.env.NETLIFY_BLOBS_CONTEXT
-  let contextKeys: string[] = []
-  try {
-    contextKeys = raw ? Object.keys(JSON.parse(Buffer.from(raw, 'base64').toString())) : []
-  } catch {
-    contextKeys = ['<unparseable>']
-  }
-  steps.environment = { hasBlobsContext: Boolean(raw), contextKeys } // key names only, never the token
-
-  await store.delete(key)
-  return Response.json(steps, { headers: { 'Cache-Control': 'no-store' } })
+  const atomic = rounds.every((r) => r.successfulWrites === 1)
+  return Response.json(
+    { verdict: atomic ? 'ATOMIC: exactly 1 winner every round' : 'NOT ATOMIC: several writers won the same ETag', rounds },
+    { headers: { 'Cache-Control': 'no-store' } },
+  )
 }
