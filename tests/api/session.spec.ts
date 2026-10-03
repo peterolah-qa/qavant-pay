@@ -15,8 +15,9 @@ test.describe('API · demo session & account', () => {
     expect(Date.parse((await res.json()).expiresAt)).toBeGreaterThan(Date.now())
   })
 
-  test('session → GET /api/account returns the seeded account @smoke @p1', async ({ request }) => {
+  test('session + PIN → GET /api/account returns the seeded account @smoke @p1', async ({ request }) => {
     await request.post('/api/demo/session') // the request context keeps the cookie
+    await request.post('/api/auth/pin', { data: { pin: '1234' } })
 
     const res = await request.get('/api/account')
     expect(res.status()).toBe(200)
@@ -48,6 +49,8 @@ test.describe('API · demo session & account', () => {
     try {
       const a = await alice.post('/api/demo/session')
       const b = await bob.post('/api/demo/session')
+      await alice.post('/api/auth/pin', { data: { pin: '1234' } })
+      await bob.post('/api/auth/pin', { data: { pin: '1234' } })
       expect(a.headers()['set-cookie']).not.toBe(b.headers()['set-cookie'])
       expect((await alice.get('/api/account')).status()).toBe(200)
       expect((await bob.get('/api/account')).status()).toBe(200)
