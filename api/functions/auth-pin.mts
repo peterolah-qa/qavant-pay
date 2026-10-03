@@ -1,18 +1,18 @@
 // POST /api/auth/pin  { "pin": "1234" }
-// The lockout state lives on the SERVER (in the sandbox), so it cannot be bypassed
-// by reloading the page or editing JavaScript in the browser.
-import { DEMO_PIN, attemptPin } from '@qavant-pay/core'
-import { loadSandbox } from '../lib/auth.ts'
+// The lockout state lives on the SERVER (in the sandbox), so it cannot be bypassed by reloading
+// the page. The read-check-write runs under optimistic locking, so firing many guesses in
+// PARALLEL cannot slip past the 3-attempt limit either.
+import { DEMO_PIN, attemptPin, type PinAttempt } from '@qavant-pay/core'
+import { sessionExpired, unauthenticated } from '../lib/auth.ts'
 import { error, json, methodNotAllowed } from '../lib/http.ts'
-import { sandboxRepo } from '../lib/store.ts'
+import { isExpired, readSessionId } from '../lib/session.ts'
+import { WriteConflictError, sandboxRepo } from '../lib/store.ts'
 
 export default async (req: Request) => {
   if (req.method !== 'POST') return methodNotAllowed('POST')
 
-  const repo = sandboxRepo()
-  const now = new Date()
-  const session = await loadSandbox(req, repo, now)
-  if (!session.ok) return session.response
+  const id = readSessionId(req.headers.get('cookie'))
+  if (!id) return unauthenticated()
 
   let pin: unknown
   try {
@@ -24,12 +24,24 @@ export default async (req: Request) => {
     return error(400, 'INVALID_REQUEST', 'Body must be {"pin": "<4 digits>"}')
   }
 
-  const { sandbox } = session
-  const attempt = attemptPin(sandbox.pin, pin, DEMO_PIN, now.getTime())
-  sandbox.pin = attempt.state
-  if (attempt.result === 'OK') sandbox.authenticated = true
-  await repo.save(sandbox)
+  const now = new Date()
+  let outcome
+  try {
+    outcome = await sandboxRepo().update<PinAttempt | 'EXPIRED'>(id, (sandbox) => {
+      if (isExpired(sandbox.createdAt, now)) return { result: 'EXPIRED', changed: false }
+      const attempt = attemptPin(sandbox.pin, pin, DEMO_PIN, now.getTime())
+      sandbox.pin = attempt.state
+      if (attempt.result === 'OK') sandbox.authenticated = true
+      return { result: attempt, changed: true }
+    })
+  } catch (e) {
+    if (e instanceof WriteConflictError) return error(409, 'CONFLICT', 'Too many parallel requests, try again')
+    throw e
+  }
 
+  if (!outcome.found || outcome.result === 'EXPIRED') return sessionExpired()
+
+  const attempt = outcome.result
   switch (attempt.result) {
     case 'OK':
       return json({ authenticated: true })
