@@ -24,6 +24,11 @@
   to = "/.netlify/functions/auth-pin"
   status = 200
 
+[[redirects]]
+  from = "/api/transactions/:id"
+  to = "/.netlify/functions/transaction-detail?id=:id"
+  status = 200
+
 # fallback: /api/<name> → function <name> (e.g. /api/health)
 [[redirects]]
   from = "/api/*"
