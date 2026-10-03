@@ -19,3 +19,16 @@ export async function loadSandbox(req: Request, repo: SandboxRepo, now = new Dat
 
   return { ok: true, sandbox }
 }
+
+/** Same as loadSandbox, but the visitor must also have entered the correct PIN. */
+export async function loadAuthenticatedSandbox(
+  req: Request,
+  repo: SandboxRepo,
+  now = new Date(),
+): Promise<SessionResult> {
+  const session = await loadSandbox(req, repo, now)
+  if (session.ok && !session.sandbox.authenticated) {
+    return { ok: false, response: error(401, 'PIN_REQUIRED', 'Enter your PIN first') }
+  }
+  return session
+}
