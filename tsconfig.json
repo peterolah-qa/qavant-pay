@@ -1,0 +1,16 @@
+{
+  // Type-checks everything outside apps/web (core, API functions, tests, scripts).
+  // esbuild and Vitest only strip types – they never report type errors – so CI runs this.
+  "compilerOptions": {
+    "target": "es2023",
+    "lib": ["ES2023", "DOM"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["packages", "api", "tests", "scripts", "*.config.ts"]
+}
