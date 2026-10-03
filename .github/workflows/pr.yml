@@ -14,13 +14,14 @@ jobs:
     name: Lint · typecheck · build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
       - run: npm ci
       - run: npm run lint -w apps/web
+      - run: npm run test:unit
       - run: npm run build # includes `tsc -b`
 
   e2e:
@@ -33,7 +34,7 @@ jobs:
       BASE_URL: ${{ github.event_name == 'pull_request' && format('https://deploy-preview-{0}--qavant-pay.netlify.app', github.event.number) || 'https://qavant-pay.netlify.app' }}
       EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: npm ci
       - name: Wait until Netlify serves this commit
         run: node scripts/wait-for-deploy.mjs
@@ -41,7 +42,7 @@ jobs:
         run: npx playwright test
       - name: Upload report
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: playwright-report
           path: playwright-report/
