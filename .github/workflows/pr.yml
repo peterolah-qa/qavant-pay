@@ -1,0 +1,48 @@
+name: PR checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static:
+    name: Lint · typecheck · build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint -w apps/web
+      - run: npm run build # includes `tsc -b`
+
+  e2e:
+    name: Playwright vs Netlify deploy
+    needs: static
+    runs-on: ubuntu-latest
+    container: mcr.microsoft.com/playwright:v1.63.0-noble
+    env:
+      # PR → its deploy preview, push to main → production
+      BASE_URL: ${{ github.event_name == 'pull_request' && format('https://deploy-preview-{0}--qavant-pay.netlify.app', github.event.number) || 'https://qavant-pay.netlify.app' }}
+      EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm ci
+      - name: Wait until Netlify serves this commit
+        run: node scripts/wait-for-deploy.mjs
+      - name: Run Playwright
+        run: npx playwright test
+      - name: Upload report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14

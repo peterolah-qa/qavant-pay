@@ -2,10 +2,15 @@
   "name": "qavant-pay",
   "private": true,
   "type": "module",
-  "workspaces": ["apps/*"],
+  "workspaces": [
+    "apps/*"
+  ],
   "scripts": {
     "dev": "npm run dev -w apps/web",
     "build": "npm run build -w apps/web",
     "preview": "npm run preview -w apps/web"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
   }
 }
