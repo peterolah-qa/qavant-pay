@@ -22,6 +22,7 @@ jobs:
       - run: npm ci
       - run: npm run lint -w apps/web
       - run: npm run test:unit
+      - run: npm run typecheck
       - run: npm run build # includes `tsc -b`
 
   e2e:

@@ -14,6 +14,11 @@
   to = "/.netlify/functions/iban-validate"
   status = 200
 
+[[redirects]]
+  from = "/api/demo/session"
+  to = "/.netlify/functions/demo-session"
+  status = 200
+
 # fallback: /api/<name> → function <name> (e.g. /api/health)
 [[redirects]]
   from = "/api/*"
