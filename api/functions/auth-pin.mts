@@ -6,7 +6,7 @@ import { DEMO_PIN, attemptPin, type PinAttempt } from '@qavant-pay/core'
 import { sessionExpired, unauthenticated } from '../lib/auth.ts'
 import { error, json, methodNotAllowed } from '../lib/http.ts'
 import { isExpired, readSessionId } from '../lib/session.ts'
-import { WriteConflictError, sandboxRepo } from '../lib/store.ts'
+import { StoreUnavailableError, WriteConflictError, sandboxRepo } from '../lib/store.ts'
 
 export default async (req: Request) => {
   if (req.method !== 'POST') return methodNotAllowed('POST')
@@ -36,6 +36,7 @@ export default async (req: Request) => {
     })
   } catch (e) {
     if (e instanceof WriteConflictError) return error(409, 'CONFLICT', 'Too many parallel requests, try again')
+    if (e instanceof StoreUnavailableError) return error(503, 'STORE_UNAVAILABLE', 'Cannot safely save right now, try again')
     throw e
   }
 

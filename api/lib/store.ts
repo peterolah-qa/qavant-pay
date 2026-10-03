@@ -15,6 +15,9 @@ export class WriteConflictError extends Error {
   }
 }
 
+/** The store cannot guarantee a safe (conditional) write → refuse instead of risking a double spend. */
+export class StoreUnavailableError extends Error {}
+
 /** mutate() changes the sandbox in place; `changed: false` skips the write. */
 export type Mutation<T> = (sandbox: Sandbox) => { result: T; changed: boolean } | Promise<{ result: T; changed: boolean }>
 
@@ -81,11 +84,12 @@ function blobsRepo(): SandboxRepo {
     update: withOptimisticLocking(
       async (id) => {
         const entry = await store.getWithMetadata(id, { type: 'json' })
-        return entry ? { sandbox: entry.data as Sandbox, version: entry.etag ?? '' } : null
+        if (!entry) return null
+        // FAIL CLOSED: without a version we cannot detect concurrent writes, so we do not write at all
+        if (!entry.etag) throw new StoreUnavailableError('Blobs returned no ETag – conditional write impossible')
+        return { sandbox: entry.data as Sandbox, version: entry.etag }
       },
-      // no ETag (should not happen) → plain write instead of failing every request
-      async (sandbox, etag) =>
-        (await store.setJSON(sandbox.id, sandbox, etag ? { onlyIfMatch: etag } : {})).modified,
+      async (sandbox, etag) => (await store.setJSON(sandbox.id, sandbox, { onlyIfMatch: etag })).modified,
     ),
   }
 }

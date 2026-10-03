@@ -10,7 +10,7 @@ import { executeTransfer, type TransferErrorCode, type TransferInput } from '@qa
 import { pinRequired, sessionExpired, unauthenticated } from '../lib/auth.ts'
 import { error, methodNotAllowed } from '../lib/http.ts'
 import { isExpired, readSessionId } from '../lib/session.ts'
-import { WriteConflictError, sandboxRepo } from '../lib/store.ts'
+import { StoreUnavailableError, WriteConflictError, sandboxRepo } from '../lib/store.ts'
 
 const IDEMPOTENCY_KEY = /^[A-Za-z0-9_-]{8,64}$/
 
@@ -90,6 +90,7 @@ export default async (req: Request) => {
     })
   } catch (e) {
     if (e instanceof WriteConflictError) return error(409, 'CONFLICT', 'Too many parallel requests, try again')
+    if (e instanceof StoreUnavailableError) return error(503, 'STORE_UNAVAILABLE', 'Cannot safely save right now, try again')
     throw e
   }
 
