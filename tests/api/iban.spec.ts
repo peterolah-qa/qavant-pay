@@ -35,7 +35,7 @@ test.describe('API · POST /api/iban/validate', () => {
   test.describe('bad requests → 4xx with a stable error code', () => {
     test('malformed JSON → 400 INVALID_JSON @p2', async ({ request }) => {
       const res = await request.post(ENDPOINT, {
-        data: '{oops',
+        data: Buffer.from('{oops'), // Buffer is sent raw; a plain string would be JSON-encoded
         headers: { 'content-type': 'application/json' },
       })
       expect(res.status()).toBe(400)
