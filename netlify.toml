@@ -7,14 +7,21 @@
 
 [functions]
   directory = "netlify/functions"
+  node_bundler = "esbuild"
 
-# /api/* → serverless funkcie (musí byť PRED SPA pravidlom)
+# ── API routes (specific first, first match wins) ──
+[[redirects]]
+  from = "/api/iban/validate"
+  to = "/.netlify/functions/iban-validate"
+  status = 200
+
+# fallback: /api/<name> → function <name> (e.g. /api/health)
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
   status = 200
 
-# SPA: všetky ostatné cesty vráti index.html (React si routing rieši sám)
+# SPA: everything else → index.html
 [[redirects]]
   from = "/*"
   to = "/index.html"
