@@ -1,0 +1,13 @@
+:root {
+  --bg: #0b0e13;
+  --surface-1: #171b22;
+  --surface-2: #232834;
+  --text: #f2f4f7;
+  --text-2: #c9cfda;
+  --text-muted: #9aa3b2;
+  --accent: #c6f24e;
+  --accent-ink: #0b0e13;
+  --font-body: 'Manrope', system-ui, sans-serif;
+  --font-display: 'Space Grotesk', 'Manrope', system-ui, sans-serif;
+  --radius-pill: 999px;
+}
