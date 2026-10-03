@@ -28,7 +28,7 @@ export function checkTransfer(params: {
   }
 
   const remaining = remainingDailyLimit(sentTodayCents)
-  if (amountCents >= remaining) {
+  if (amountCents > remaining) {
     return { ok: false, code: 'DAILY_LIMIT_EXCEEDED', maxAllowedCents: remaining }
   }
 
