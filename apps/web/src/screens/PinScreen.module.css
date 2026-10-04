@@ -1,12 +1,152 @@
-.screen { min-height: calc(100dvh - 28px); max-width: 430px; margin: 0 auto; padding: 56px 36px 40px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 32px; }
-.brand { display: flex; flex-direction: column; align-items: center; gap: 12px; }
-.logo { width: 60px; height: 60px; border-radius: 18px; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: 30px; }
-.title { margin: 0; font-family: var(--font-display); font-size: 24px; font-weight: 600; letter-spacing: -0.02em; }
-.subtitle { margin: 0; font-size: 15px; color: var(--text-muted); }
-.demoPin { margin: 0; padding: 6px 12px; border: 1px dashed #3a414d; border-radius: var(--radius-pill); font-size: 13px; font-weight: 600; color: var(--text-2); }
-.dots { display: flex; gap: 22px; }
-.dot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid #3a414d; }
-.keypad { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px 0; justify-items: center; }
-.key { width: 76px; height: 76px; border: none; border-radius: 50%; background: var(--surface-1); color: var(--text); font-family: var(--font-display); font-size: 28px; font-weight: 500; display: grid; place-items: center; transition: background 120ms ease; }
-.key:active { background: var(--surface-2); }
-.ghost { background: transparent; color: var(--text-muted); }
+.screen {
+  min-height: calc(100dvh - 28px);
+  max-width: 430px;
+  margin: 0 auto;
+  padding: 48px 36px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo {
+  width: 60px;
+  height: 60px;
+  border-radius: 18px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 30px;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text-muted);
+}
+
+.demoPin {
+  margin: 0;
+  padding: 6px 12px;
+  border: 1px dashed #3a414d;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+/* fixed height so messages appearing/disappearing never move the keypad */
+.feedback {
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.dots {
+  display: flex;
+  gap: 22px;
+}
+
+.dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid #3a414d;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.filled {
+  background: var(--text);
+  border-color: var(--text);
+}
+
+.shake {
+  animation: shake 360ms ease;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-8px); }
+  40%, 80% { transform: translateX(8px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shake { animation: none; }
+}
+
+.warning,
+.danger {
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.warning {
+  background: #2a2215;
+  color: #f5b94a;
+}
+
+.danger {
+  background: #2a1717;
+  color: #f2766b;
+}
+
+.keypad {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px 0;
+  justify-items: center;
+}
+
+.key {
+  width: 76px;
+  height: 76px;
+  border: none;
+  border-radius: 50%;
+  background: var(--surface-1);
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 500;
+  display: grid;
+  place-items: center;
+  transition: background 120ms ease, opacity 120ms ease;
+}
+
+.key:active:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.key:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.ghost {
+  background: transparent;
+  color: var(--text-muted);
+}
