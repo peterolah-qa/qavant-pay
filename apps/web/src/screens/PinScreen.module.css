@@ -72,7 +72,7 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  border: 2px solid #3a414d;
+  border: 2px solid #5f6777; /* empty dot = UI state, needs ≥ 3:1 (WCAG 1.4.11) */
   transition: background 120ms ease, border-color 120ms ease;
 }
 

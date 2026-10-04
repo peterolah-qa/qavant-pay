@@ -21,6 +21,7 @@ export default defineConfig({
   projects: [
     { name: 'api', testDir: './tests/api' },
     { name: 'mobile-chrome', testDir: './tests/e2e', use: { ...devices['Pixel 7'] } },
+    { name: 'desktop-chrome', testDir: './tests/e2e', testMatch: /a11y\.spec\.ts/, use: { ...devices['Desktop Chrome'] } },
   ],
   webServer: isLocal
     ? {
