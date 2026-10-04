@@ -2,7 +2,6 @@
 // The parallel tests prove that money cannot be spent twice and PIN attempts cannot be raced.
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
-process.env.SANDBOX_STORE = 'memory'
 
 type Handler = (req: Request) => Promise<Response>
 let createSession: Handler, authPin: Handler, transfers: Handler, account: Handler, list: Handler

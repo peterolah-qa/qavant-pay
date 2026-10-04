@@ -1,7 +1,6 @@
 // Integration: real handlers + in-memory store. Covers auth gating and IDOR across two sandboxes.
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
-process.env.SANDBOX_STORE = 'memory'
 
 type Handler = (req: Request) => Promise<Response>
 let createSession: Handler, authPin: Handler, list: Handler, detail: Handler
