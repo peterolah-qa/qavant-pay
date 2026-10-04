@@ -11,7 +11,9 @@ export const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'
  * The full axe JSON is attached to the HTML report for debugging.
  */
 export async function expectNoA11yViolations(page: Page, testInfo: TestInfo, label: string) {
-  const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze()
+  // exclude('iframe'): Netlify injects its review Drawer (an iframe) into deploy previews only.
+  // Qavant Pay itself has no iframes, so we audit our own markup, not third-party tooling.
+  const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).exclude('iframe').analyze()
   await testInfo.attach(`axe-${label}.json`, { body: JSON.stringify(results.violations, null, 2), contentType: 'application/json' })
 
   const report = results.violations.map((v) => {
