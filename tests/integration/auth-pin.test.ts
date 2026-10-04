@@ -21,7 +21,6 @@ const enterPin = (pin: string) =>
 
 beforeEach(async () => {
   vi.useFakeTimers({ toFake: ['Date'] })
-  vi.setSystemTime(new Date('2026-10-03T12:00:00Z'))
   const res = await createSession(new Request(`${URL}/api/demo/session`, { method: 'POST' }))
   cookie = res.headers.get('set-cookie')!.split(';')[0]
 })
