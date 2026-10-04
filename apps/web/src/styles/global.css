@@ -1,8 +1,46 @@
-*, *::before, *::after { box-sizing: border-box; }
-html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-body); -webkit-font-smoothing: antialiased; }
-button { font: inherit; cursor: pointer; }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-.demo-banner { position: sticky; top: 0; z-index: 10; padding: 6px 16px; text-align: center; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; background: var(--accent); color: var(--accent-ink); }
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+a {
+  color: var(--accent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.demo-banner {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: 6px 16px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
 
 .center {
   min-height: calc(100dvh - 28px);
@@ -20,4 +58,20 @@ button { font: inherit; cursor: pointer; }
   color: var(--accent);
   font-weight: 700;
   text-decoration: underline;
+}
+
+.not-found-code {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 72px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--accent);
+}
+
+.not-found-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
 }

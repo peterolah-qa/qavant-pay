@@ -1,7 +1,7 @@
 import { formatCents, formatIban, type TransferInput } from '@qavant-pay/core'
 import { useRef, useState } from 'react'
 import { api, type Account, type ApiError, type TransferReceipt } from '../../api/client.ts'
-import { BackIcon, InfoIcon } from './icons.tsx'
+import { BackIcon, InfoIcon } from '../../icons.tsx'
 import styles from './Transfer.module.css'
 
 type Props = {

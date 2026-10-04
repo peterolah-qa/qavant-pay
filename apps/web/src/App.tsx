@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from './api/client.ts'
-import { usePath } from './router.ts'
+import { matchTransactionPath, usePath } from './router.ts'
 import { DashboardScreen } from './screens/DashboardScreen.tsx'
+import { HistoryScreen } from './screens/history/HistoryScreen.tsx'
+import { TransactionDetailScreen } from './screens/history/TransactionDetailScreen.tsx'
+import { NotFoundScreen } from './screens/NotFoundScreen.tsx'
 import { PinScreen } from './screens/PinScreen.tsx'
 import { TransferScreen } from './screens/transfer/TransferScreen.tsx'
 
@@ -24,8 +27,13 @@ async function resolveStage(): Promise<Stage> {
 /** Screens behind the PIN. The URL survives the login: a deep link to /transfer lands on /transfer. */
 function Routes({ onSessionLost }: { onSessionLost: () => void }) {
   const path = usePath()
+  if (path === '/') return <DashboardScreen onSessionLost={onSessionLost} />
   if (path === '/transfer') return <TransferScreen onSessionLost={onSessionLost} />
-  return <DashboardScreen onSessionLost={onSessionLost} />
+  if (path === '/history') return <HistoryScreen onSessionLost={onSessionLost} />
+  const txId = matchTransactionPath(path)
+  // key: a different id is a different screen (fresh loading state, no stale data)
+  if (txId) return <TransactionDetailScreen key={txId} id={txId} onSessionLost={onSessionLost} />
+  return <NotFoundScreen />
 }
 
 export default function App() {

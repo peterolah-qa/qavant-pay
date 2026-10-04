@@ -3,6 +3,7 @@
 // a response lost AFTER the bank booked the money …
 // It is stateful like the real server: a transfer lowers the balance and appears in "Recent".
 import type { Page, Route } from '@playwright/test'
+import { queryTransactions, seedSandbox, type Transaction, type TxFilter } from '@qavant-pay/core'
 
 export type Reply = { status: number; body?: unknown } | 'network-error'
 
@@ -18,12 +19,15 @@ export type TransferRequest = { idempotencyKey: string | null; body: Record<stri
 
 export const MOCK_ACCOUNT = { holder: 'Peter', ibanMasked: '•••• 7541', balanceCents: 428052, currency: 'EUR' }
 
-export const MOCK_RECENT = [
-  { id: 'tx_aaaaaaaa_01', name: 'Lidl', type: 'spending', category: 'Groceries', amountCents: -3890, bookedAt: '2026-10-03T15:35:00Z', status: 'COMPLETED' },
-  { id: 'tx_aaaaaaaa_02', name: 'Martin K.', type: 'income', category: 'Transfer in', amountCents: 12000, bookedAt: '2026-10-03T12:05:00Z', status: 'COMPLETED' },
-  { id: 'tx_aaaaaaaa_03', name: 'Bistro Kaviareň', type: 'spending', category: 'Food', amountCents: -460, bookedAt: '2026-10-03T08:15:00Z', status: 'COMPLETED' },
-  { id: 'tx_aaaaaaaa_04', name: 'Spotify', type: 'bills', category: 'Subscription', amountCents: -1099, bookedAt: '2026-10-02T09:00:00Z', status: 'COMPLETED' },
-]
+/** "Now" of the mocked bank. Tests that show dates fix the browser clock to it (page.clock.setFixedTime). */
+export const MOCK_NOW = new Date('2026-10-03T16:00:00Z') // 18:00 in Bratislava
+
+/**
+ * The same 12 seeded transactions the real server creates (seedSandbox from @qavant-pay/core),
+ * with fixed dates and ids tx_aaaaaaaa_01 … _12. Lidl / Martin K. / Bistro Kaviareň are "Today".
+ */
+export const MOCK_TRANSACTIONS: Transaction[] = seedSandbox('aaaaaaaa-0000-4000-8000-000000000000', MOCK_NOW).transactions
+export const MOCK_RECENT = MOCK_TRANSACTIONS.slice(0, 4)
 
 /** Default PIN behaviour = the real server: 1234 is correct, 3 wrong attempts lock for 30 s. */
 function realisticPin(pin: string, wrongSoFar: number): Reply {
@@ -41,6 +45,8 @@ type Options = {
   loggedIn?: boolean
   onPin?: (pin: string, attempt: number) => Reply
   onTransfer?: (request: TransferRequest, attempt: number) => TransferReply
+  /** history list: answer with this instead, or answer normally but slower (delayMs) */
+  onHistory?: (params: URLSearchParams, attempt: number) => Reply | { delayMs: number } | undefined
 }
 
 export async function mockBank(page: Page, options: Options = {}) {
@@ -48,18 +54,40 @@ export async function mockBank(page: Page, options: Options = {}) {
   let attempts = 0
   let wrong = 0
   let balanceCents = MOCK_ACCOUNT.balanceCents
-  const recent = [...MOCK_RECENT]
+  const transactions: Transaction[] = [...MOCK_TRANSACTIONS] // newest first, like the server
   const booked = new Map<string, unknown>() // Idempotency-Key → original 201 body
   /** every transfer request the browser sent – tests assert on count and keys */
   const transferRequests: TransferRequest[] = []
+  /** query string of every history request – e.g. to prove the search is debounced */
+  const historyRequests: URLSearchParams[] = []
 
   await page.route('**/api/account', (route) =>
     authenticated ? json(route, 200, { ...MOCK_ACCOUNT, balanceCents }) : json(route, 401, { code: 'PIN_REQUIRED' }),
   )
   await page.route('**/api/demo/session', (route) => json(route, 201, { expiresAt: '2099-01-01T00:00:00Z' }))
-  await page.route('**/api/transactions?*', (route) => {
-    const limit = Number(new URL(route.request().url()).searchParams.get('limit') ?? 20)
-    return json(route, 200, { items: recent.slice(0, limit), nextCursor: null })
+  // list: the REAL filter/search/pagination code from core, so the mock cannot drift from the server
+  await page.route('**/api/transactions?*', async (route) => {
+    const params = new URL(route.request().url()).searchParams
+    historyRequests.push(params)
+    const special = options.onHistory?.(params, historyRequests.length)
+    if (special === 'network-error') return route.abort('internetdisconnected')
+    if (special && 'status' in special) return json(route, special.status, special.body)
+    if (special && 'delayMs' in special) await new Promise((resolve) => setTimeout(resolve, special.delayMs))
+
+    const result = queryTransactions(transactions, {
+      type: (params.get('type') ?? 'all') as TxFilter,
+      q: params.get('q') ?? '',
+      limit: params.has('limit') ? Number(params.get('limit')) : undefined,
+      cursor: params.get('cursor'),
+    })
+    if (!result.ok) return json(route, 400, { code: result.code })
+    return json(route, 200, result.page).catch(() => {}) // the page may have aborted a stale request
+  })
+  // detail: only ids of THIS sandbox exist, everything else is 404 (like the IDOR-safe server)
+  await page.route('**/api/transactions/*', (route) => {
+    const id = decodeURIComponent(new URL(route.request().url()).pathname.split('/').pop() ?? '')
+    const tx = transactions.find((t) => t.id === id)
+    return tx ? json(route, 200, tx) : json(route, 404, { code: 'NOT_FOUND', message: 'Transaction not found' })
   })
   await page.route('**/api/auth/pin', async (route) => {
     const { pin } = route.request().postDataJSON() as { pin: string }
@@ -91,16 +119,18 @@ export async function mockBank(page: Page, options: Options = {}) {
 
     const amountCents = Number(request.body.amountCents)
     balanceCents -= amountCents
-    const transaction = {
-      id: `tx_aaaaaaaa_${String(recent.length + 1).padStart(2, '0')}`,
+    const transaction: Transaction = {
+      id: `tx_aaaaaaaa_${String(transactions.length + 1).padStart(2, '0')}`,
       name: String(request.body.recipientName),
       type: 'spending',
       category: 'Transfer out',
       amountCents: -amountCents,
       bookedAt: new Date().toISOString(),
       status: 'COMPLETED',
+      counterpartyIban: String(request.body.iban),
+      ...(request.body.note ? { note: String(request.body.note) } : {}),
     }
-    recent.unshift(transaction)
+    transactions.unshift(transaction)
     const body = { transaction, balanceCents }
     booked.set(key, body)
 
@@ -108,5 +138,5 @@ export async function mockBank(page: Page, options: Options = {}) {
     return json(route, 201, body)
   })
 
-  return { transferRequests }
+  return { transferRequests, historyRequests }
 }

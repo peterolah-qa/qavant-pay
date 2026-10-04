@@ -1,7 +1,7 @@
 import { formatCents, type TransferInput } from '@qavant-pay/core'
 import { useEffect, useRef } from 'react'
 import type { TransferReceipt } from '../../api/client.ts'
-import { CheckIcon } from './icons.tsx'
+import { CheckIcon } from '../../icons.tsx'
 import styles from './Transfer.module.css'
 
 type Props = { input: TransferInput; receipt: TransferReceipt; onDone: () => void }
