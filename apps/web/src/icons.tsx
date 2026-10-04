@@ -25,3 +25,16 @@ export const SendIcon = () => (
     <path d="M5 12h14M13 6l6 6-6 6" />
   </svg>
 )
+
+export const SearchIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" strokeWidth="2" {...base}>
+    <circle cx="11" cy="11" r="7" />
+    <path d="M20 20l-3.5-3.5" />
+  </svg>
+)
+
+export const ChevronIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" strokeWidth="2" {...base}>
+    <path d="M9 6l6 6-6 6" />
+  </svg>
+)

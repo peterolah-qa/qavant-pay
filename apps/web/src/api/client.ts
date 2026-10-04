@@ -1,6 +1,6 @@
 // Typed client for the Qavant Pay API. Never throws: every call returns { ok, data } or { ok, error },
 // so screens handle failures explicitly (wrong PIN, lockout, expired session, offline …).
-import type { Transaction, TransferInput } from '@qavant-pay/core'
+import type { Transaction, TransferInput, TxFilter } from '@qavant-pay/core'
 
 export type ApiError = {
   status: number // 0 = network error
@@ -16,6 +16,7 @@ export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: ApiError 
 export type Account = { holder: string; ibanMasked: string; balanceCents: number; currency: 'EUR' }
 export type TransactionPage = { items: Transaction[]; nextCursor: string | null }
 export type TransferReceipt = { transaction: Transaction; balanceCents: number }
+export type HistoryParams = { type?: TxFilter; q?: string; limit?: number; cursor?: string | null }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<ApiResult<T>> {
   let res: Response
@@ -44,6 +45,13 @@ export const api = {
   enterPin: (pin: string) =>
     request<{ authenticated: true }>('/api/auth/pin', { method: 'POST', body: JSON.stringify({ pin }) }),
   transactions: (limit = 20) => request<TransactionPage>(`/api/transactions?limit=${limit}`),
+  history: ({ type = 'all', q = '', limit = 20, cursor = null }: HistoryParams, signal?: AbortSignal) => {
+    const params = new URLSearchParams({ type, limit: String(limit) })
+    if (q) params.set('q', q)
+    if (cursor) params.set('cursor', cursor)
+    return request<TransactionPage>(`/api/transactions?${params}`, { signal })
+  },
+  transaction: (id: string) => request<Transaction>(`/api/transactions/${encodeURIComponent(id)}`),
   /** The same idempotencyKey for every retry of ONE transfer → the server books it at most once. */
   transfer: (input: TransferInput, idempotencyKey: string) =>
     request<TransferReceipt>('/api/transfers', {

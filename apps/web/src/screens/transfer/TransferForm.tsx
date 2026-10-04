@@ -13,7 +13,7 @@ import {
   type TransferInput,
 } from '@qavant-pay/core'
 import { useState, type FormEvent } from 'react'
-import { BackIcon, CheckIcon, InfoIcon } from './icons.tsx'
+import { BackIcon, CheckIcon, InfoIcon } from '../../icons.tsx'
 import styles from './Transfer.module.css'
 
 type Props = {

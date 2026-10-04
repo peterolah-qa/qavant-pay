@@ -1,20 +1,21 @@
 import { formatCents, type Transaction } from '@qavant-pay/core'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type MouseEvent } from 'react'
 import { api, type Account } from '../api/client.ts'
+import { formatShortDateTime, signedCents } from '../format.ts'
 import { navigate } from '../router.ts'
 import styles from './DashboardScreen.module.css'
-import { SendIcon } from './transfer/icons.tsx'
+import { SendIcon } from '../icons.tsx'
 
 type State =
   | { kind: 'loading' }
   | { kind: 'ready'; account: Account; recent: Transaction[] }
   | { kind: 'error' }
 
-const dateFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 
-/** -3890 → "−€38.90", 12000 → "+€120.00" (real minus sign, not a hyphen) */
-function signed(amountCents: number): string {
-  return `${amountCents < 0 ? '−' : '+'}${formatCents(Math.abs(amountCents))}`
+/** Real links (open in new tab, screen readers) with client-side navigation on a normal click. */
+const go = (path: string) => (e: MouseEvent<HTMLAnchorElement>) => {
+  e.preventDefault()
+  navigate(path)
 }
 
 export function DashboardScreen({ onSessionLost }: { onSessionLost: () => void }) {
@@ -81,39 +82,38 @@ export function DashboardScreen({ onSessionLost }: { onSessionLost: () => void }
           {formatCents(account.balanceCents)}
         </p>
         <div className={styles.actions}>
-          <a
-            href="/transfer"
-            className={styles.action}
-            data-testid="dashboard-send"
-            onClick={(e) => {
-              e.preventDefault() // client-side navigation, no page reload
-              navigate('/transfer')
-            }}
-          >
+          <a href="/transfer" className={styles.action} data-testid="dashboard-send" onClick={go('/transfer')}>
             <SendIcon /> Send
           </a>
         </div>
       </section>
 
       <section aria-labelledby="recent-heading">
-        <h2 id="recent-heading" className={styles.sectionTitle}>
-          Recent
-        </h2>
+        <div className={styles.sectionHead}>
+          <h2 id="recent-heading" className={styles.sectionTitle}>
+            Recent
+          </h2>
+          <a href="/history" className={styles.seeAll} data-testid="dashboard-see-all" onClick={go('/history')}>
+            See all
+          </a>
+        </div>
         <ul className={styles.list}>
           {recent.map((t) => (
-            <li key={t.id} className={styles.row} data-testid={`recent-tx-${t.id}`}>
-              <span className={styles.initial} aria-hidden="true">
-                {t.name.slice(0, 1)}
-              </span>
-              <span className={styles.rowText}>
-                <span className={styles.rowName}>{t.name}</span>
-                <span className={styles.muted}>
-                  {t.category} · {dateFormat.format(new Date(t.bookedAt))}
+            <li key={t.id} data-testid={`recent-tx-${t.id}`}>
+              <a href={`/transactions/${t.id}`} className={styles.row} onClick={go(`/transactions/${t.id}`)}>
+                <span className={styles.initial} aria-hidden="true">
+                  {t.name.slice(0, 1)}
                 </span>
-              </span>
-              <span className={`${styles.amount} ${t.amountCents > 0 ? styles.income : ''}`}>
-                {signed(t.amountCents)}
-              </span>
+                <span className={styles.rowText}>
+                  <span className={styles.rowName}>{t.name}</span>
+                  <span className={styles.muted}>
+                    {t.category} · {formatShortDateTime(t.bookedAt)}
+                  </span>
+                </span>
+                <span className={`${styles.amount} ${t.amountCents > 0 ? styles.income : ''}`}>
+                  {signedCents(t.amountCents)}
+                </span>
+              </a>
             </li>
           ))}
         </ul>
