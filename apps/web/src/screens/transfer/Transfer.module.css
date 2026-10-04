@@ -1,0 +1,341 @@
+.screen {
+  min-height: calc(100dvh - 28px);
+  max-width: 430px;
+  margin: 0 auto;
+  padding: 32px 20px 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.iconButton {
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: var(--surface-1);
+  color: var(--text);
+  display: grid;
+  place-items: center;
+}
+
+.title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  outline: none;
+}
+
+.form {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.optional {
+  font-weight: 500;
+  color: var(--text-faint);
+}
+
+.inputWrap {
+  position: relative;
+  display: flex;
+}
+
+.input {
+  flex-grow: 1;
+  width: 100%;
+  height: 56px;
+  padding: 0 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px; /* ≥16px: iOS does not zoom into the field */
+}
+
+.input::placeholder {
+  color: var(--text-faint);
+}
+
+.input:focus-visible {
+  outline: none;
+  border-color: var(--text-muted);
+}
+
+.ibanInput {
+  padding-right: 48px;
+  letter-spacing: 0.02em;
+}
+
+.amountInput {
+  height: 72px;
+  padding-left: 44px;
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 600;
+}
+
+.valid,
+.valid:focus-visible {
+  border: 1.5px solid var(--accent);
+}
+
+.invalid,
+.invalid:focus-visible {
+  border: 1.5px solid var(--danger);
+}
+
+.inputIcon {
+  position: absolute;
+  right: 16px;
+  top: 18px;
+  color: var(--accent);
+}
+
+.currency {
+  position: absolute;
+  left: 18px;
+  top: 16px;
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 600;
+  color: var(--text-faint);
+  pointer-events: none;
+}
+
+.status {
+  margin: 0;
+  min-height: 18px; /* messages never push the layout around */
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ok {
+  color: var(--accent);
+}
+
+.error {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.counter {
+  align-self: flex-end;
+  color: var(--text-faint);
+  font-weight: 500;
+}
+
+.quick {
+  display: flex;
+  gap: 8px;
+}
+
+.quickButton {
+  flex-grow: 1;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.quickButton:active {
+  background: var(--surface-1);
+}
+
+.primary,
+.secondary {
+  height: 56px;
+  border: none;
+  border-radius: 18px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.primary {
+  margin-top: auto;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.primary:disabled {
+  background: var(--surface-2);
+  color: var(--text-faint);
+  cursor: not-allowed;
+}
+
+.secondary {
+  background: transparent;
+  color: var(--text-2);
+}
+
+.secondary:disabled {
+  opacity: 0.4;
+}
+
+/* review */
+.summary {
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.summaryAmount {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.rows {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 15px;
+}
+
+.row dt {
+  color: var(--text-muted);
+}
+
+.row dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 600;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-wrap: anywhere;
+}
+
+.rowSub {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.actions {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.actions .primary {
+  margin-top: 0;
+}
+
+.banner {
+  margin: 0 0 8px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  display: flex;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.banner svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.bannerDanger {
+  background: #2a1717;
+  color: var(--danger);
+}
+
+.bannerWarning {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+/* success */
+.success {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 14px;
+}
+
+.successIcon {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  display: grid;
+  place-items: center;
+  margin-bottom: 8px;
+}
+
+.successText {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.reference {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.success .primary {
+  margin-top: 24px;
+  align-self: stretch;
+}
+
+.ibanValue {
+  white-space: nowrap;
+  font-size: 14px;
+  letter-spacing: 0.01em;
+}

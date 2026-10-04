@@ -129,3 +129,23 @@
 .income {
   color: var(--accent);
 }
+
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
+.action {
+  flex-grow: 1;
+  height: 48px;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--accent-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+}

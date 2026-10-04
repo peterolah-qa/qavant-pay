@@ -1,7 +1,9 @@
 import { formatCents, type Transaction } from '@qavant-pay/core'
 import { useEffect, useState } from 'react'
 import { api, type Account } from '../api/client.ts'
+import { navigate } from '../router.ts'
 import styles from './DashboardScreen.module.css'
+import { SendIcon } from './transfer/icons.tsx'
 
 type State =
   | { kind: 'loading' }
@@ -12,7 +14,7 @@ const dateFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'sh
 
 /** -3890 → "−€38.90", 12000 → "+€120.00" (real minus sign, not a hyphen) */
 function signed(amountCents: number): string {
-  return `${amountCents < 0 ? '\u2212' : '+'}${formatCents(Math.abs(amountCents))}`
+  return `${amountCents < 0 ? '−' : '+'}${formatCents(Math.abs(amountCents))}`
 }
 
 export function DashboardScreen({ onSessionLost }: { onSessionLost: () => void }) {
@@ -78,6 +80,19 @@ export function DashboardScreen({ onSessionLost }: { onSessionLost: () => void }
         <p className={styles.balance} data-testid="balance-amount">
           {formatCents(account.balanceCents)}
         </p>
+        <div className={styles.actions}>
+          <a
+            href="/transfer"
+            className={styles.action}
+            data-testid="dashboard-send"
+            onClick={(e) => {
+              e.preventDefault() // client-side navigation, no page reload
+              navigate('/transfer')
+            }}
+          >
+            <SendIcon /> Send
+          </a>
+        </div>
       </section>
 
       <section aria-labelledby="recent-heading">
