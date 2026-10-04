@@ -2,7 +2,6 @@
 // Fake timers let us jump past the 30 s lockout instantly – impossible against the deployed API.
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
-process.env.SANDBOX_STORE = 'memory'
 
 let createSession: (req: Request) => Promise<Response>
 let authPin: (req: Request) => Promise<Response>

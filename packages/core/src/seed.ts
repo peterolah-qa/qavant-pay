@@ -14,6 +14,8 @@ export type Transaction = {
   amountCents: Cents // negative = money out
   bookedAt: string // ISO 8601
   status: 'COMPLETED'
+  counterpartyIban?: string
+  note?: string
 }
 
 export type Account = {
@@ -30,6 +32,14 @@ export type Sandbox = {
   transactions: Transaction[] // newest first
   pin: PinState
   authenticated: boolean
+  /** Idempotency-Key → stored response of a completed transfer (replayed on retry) */
+  idempotency?: Record<string, IdempotencyRecord>
+}
+
+export type IdempotencyRecord = {
+  fingerprint: string
+  status: number
+  body: unknown
 }
 
 const SEED: Array<[minutesAgo: number, name: string, type: TxType, category: string, amountCents: Cents]> = [
@@ -71,6 +81,7 @@ export function seedSandbox(id: string, now: Date): Sandbox {
     })),
     pin: initialPinState,
     authenticated: false,
+    idempotency: {},
   }
 }
 

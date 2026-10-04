@@ -1,0 +1,14 @@
+# Local test database for integration tests: npm run test:db
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: qp
+      POSTGRES_PASSWORD: qp
+      POSTGRES_DB: qavant_test
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qp -d qavant_test"]
+      interval: 2s
+      retries: 20

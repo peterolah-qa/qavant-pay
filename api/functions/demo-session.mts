@@ -10,7 +10,7 @@ export default async (req: Request) => {
 
   const now = new Date()
   const sandbox = seedSandbox(crypto.randomUUID(), now)
-  await sandboxRepo().save(sandbox)
+  await sandboxRepo().create(sandbox)
 
   return json(
     { expiresAt: new Date(now.getTime() + SESSION_TTL_MS).toISOString() },
