@@ -13,6 +13,23 @@ jobs:
   static:
     name: Lint · typecheck · build
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: qp
+          POSTGRES_PASSWORD: qp
+          POSTGRES_DB: qavant_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U qp -d qavant_test"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      # integration tests (incl. the parallel race tests) run against this real Postgres
+      TEST_DATABASE_URL: postgres://qp:qp@localhost:5432/qavant_test
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -23,7 +40,7 @@ jobs:
       - run: npm run lint -w apps/web
       - run: npm run test:unit
       - run: npm run typecheck
-      - run: npm run build # includes `tsc -b`
+      - run: npm run build # includes `tsc -b`; migration is skipped (no DATABASE_URL here)
 
   e2e:
     name: Playwright vs Netlify deploy
