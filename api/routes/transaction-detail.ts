@@ -4,7 +4,6 @@
 import { loadAuthenticatedSandbox } from '../lib/auth.ts'
 import { error, json, methodNotAllowed } from '../lib/http.ts'
 import { sandboxRepo } from '../lib/store.ts'
-import { withTiming } from '../lib/timing.ts'
 
 const TX_ID = /^tx_[0-9a-f]{8}_\d{2,}$/
 
@@ -27,4 +26,4 @@ const handler = async (req: Request) => {
   return json(transaction, 200, { 'Cache-Control': 'no-store' })
 }
 
-export default withTiming(handler)
+export default handler

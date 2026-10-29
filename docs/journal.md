@@ -116,6 +116,29 @@ Updated with every step. Newest phase at the bottom.
 - **Side finding:** the function bundles could not run in plain Node (`Dynamic require of "events"`). They only worked because Netlify re-bundles them. Fixed with a `createRequire` banner, so the lab can run the exact production bundle.
 - **Lesson:** "slow" is not a bug report, a number is. Instrument first, reproduce second, fix third, and keep the "before" numbers for the "after".
 
+### P.2 The biggest win was one environment variable
+- **Change:** a new Neon project in **AWS us-east-2**, where Netlify runs the functions, and a new `DATABASE_URL`. No code.
+- **Result in production:** dashboard p50 **3 486 → 836 ms (4.2×)**, sandbox creation 1 809 → 179 ms, DB time 1 647 → 18 ms. `Server-Timing` now says `fn=us-east-2 db=us-east-2`.
+- **Process slip:** the new connection string was visible in a screenshot during setup, so the password was rotated straight away. Same lesson as 1.2: secrets never go on screen.
+- **Lesson:** measure where the time goes before optimising code. Here the first 4× came from geography, not from the code.
+
+### P.3 An optimisation that broke concurrency, caught by an existing test
+- **Change:** to save a round trip, the row lock (`FOR UPDATE`) was folded into the query that loads the sandbox and its transactions as JSON.
+- **Found by:** the integration test "5 PARALLEL transfers" (real Postgres) failed with `duplicate key … transactions_pkey`. Two parallel transfers computed the same next transaction id.
+- **Root cause:** under READ COMMITTED a statement keeps the snapshot it started with. After waiting for the lock, Postgres re-reads the locked **row**, but the statement's sub-selects still see the **old snapshot**, without the transaction the other request had just committed.
+- **Fix:** the lock is its own statement (`BEGIN; SET LOCAL lock_timeout; SELECT … FOR UPDATE` in one simple-protocol round trip), and the load runs as the next statement with a fresh snapshot. It is still 4 round trips instead of 9.
+- **Mutation tests:** no lock at all → 2 tests red; lock folded back into the load → 1 test red.
+- **Lesson:** the parallel tests from phase 1 (written for the Blobs race) paid for themselves again. Performance work without concurrency tests is gambling.
+
+### P.4 One function, two requests, a budget in CI
+- **8 functions → 1** (`api.mts` with an internal router): one cold start and one warm connection pool instead of 8.
+- **App start 4 requests → 2:** `POST /api/session` answers "PIN or app" and creates the sandbox if needed, and the PIN answer carries the dashboard data. The copy is used once and only for 5 s. A test proves that coming back after a transfer shows fresh data, not the login copy.
+- **SQL round trips:** create 16 → 1 (one statement with `json_to_recordset`), read 3 → 1, PIN 7 → 4, transfer 9 → 4.
+- **Connection reuse:** idle connections are kept 4 min instead of 10 s, with a single retry when the database closed the connection while the instance was frozen. The retry happens **only if nothing reached the database yet**, so it can never write twice. Both rules have their own test.
+- **A test that did not test:** the first reconnect test killed the connection from the database side and passed even without the retry. The pool notices a server-side kill immediately, while a frozen Netlify instance does not. It was replaced by a deterministic test where the first pooled connection behaves like a dead one, and the mutant without retry now fails.
+- **Budgets in CI:** exact SQL round trips per endpoint (integration + real deploy) and API calls per screen (E2E). Numbers, not milliseconds, so they cannot be flaky.
+- **Lab:** dashboard at 100 ms RTT **2 684 → 530 ms**.
+
 ---
 
 ## Numbers (after PR #52)

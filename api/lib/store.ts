@@ -29,6 +29,7 @@ export interface SandboxRepo {
 }
 
 export const SANDBOX_TTL_HOURS = 24
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const LOCK_TIMEOUT = '5s'
 
 // ───────────────────────────── Postgres ─────────────────────────────
@@ -38,58 +39,108 @@ pg.types.setTypeParser(20, (value) => Number(value)) // BIGINT cents → number 
 let pool: pg.Pool | undefined
 function getPool(): pg.Pool {
   if (!process.env.DATABASE_URL) throw new StoreUnavailableError('DATABASE_URL is not configured')
-  // one serverless instance handles one request at a time – a small pool is enough
-  pool ??= new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 3, idleTimeoutMillis: 10_000 })
+  pool ??= new pg.Pool({
+    connectionString: process.env.DATABASE_URL,
+    max: 3, // one serverless instance handles one request at a time; tests run several in parallel
+    // Keep the connection while the instance stays warm: opening a new one costs TCP + TLS + auth
+    // (≈ 70 ms in the same region, ≈ 600 ms across the Atlantic – measured, docs/performance.md).
+    idleTimeoutMillis: 240_000, // < 5 min, when Neon suspends an idle compute anyway
+    keepAlive: true,
+    application_name: process.env.QP_DB_APP_NAME ?? 'qavant-pay-api', // visible in pg_stat_activity
+  })
+  // a pooled connection that dies while idle must not crash the process – it is dropped and replaced
+  pool.on('error', () => {})
   return pool
 }
 
-type Queryable = { query(text: string, values?: unknown[]): Promise<pg.QueryResult> }
+type Queryable = { query(text: string, values?: unknown[]): Promise<pg.QueryResult>; completed: number }
 
 /** Counts every SQL round trip and its duration for the Server-Timing header. */
 function timed(db: Pick<pg.PoolClient, 'query'>): Queryable {
-  return {
+  const wrapper: Queryable = {
+    completed: 0,
     query: async (text, values) => {
       const start = performance.now()
       try {
-        return await db.query(text, values)
+        const result = await db.query(text, values)
+        wrapper.completed += 1
+        return result
       } finally {
         recordQuery(performance.now() - start)
       }
     },
   }
+  return wrapper
 }
 
-/** A pooled connection; time spent here is TCP + TLS + auth when the pool has to open a new one. */
-async function connect(): Promise<{ db: Queryable; release: () => void }> {
-  const start = performance.now()
-  const client = await getPool().connect().catch(translate)
-  recordConnect(performance.now() - start)
-  return { db: timed(client), release: () => client.release() }
+const CONNECTION_LOST = /Connection terminated|Client has encountered a connection error|ECONNRESET|EPIPE/i
+const isConnectionLost = (e: unknown) =>
+  ['ECONNRESET', 'EPIPE'].includes((e as { code?: string }).code ?? '') || CONNECTION_LOST.test(String((e as Error)?.message))
+
+/**
+ * Runs `work` on a pooled connection. A warm instance can be frozen between requests and its idle
+ * connection closed meanwhile; the first query then fails with "Connection terminated". If NOTHING
+ * reached the database yet, retrying once on a fresh connection is safe – nothing was read or written.
+ */
+async function withClient<T>(work: (db: Queryable) => Promise<T>): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    const start = performance.now()
+    const client = await getPool().connect().catch(translate)
+    recordConnect(performance.now() - start)
+    const db = timed(client)
+    let broken = false
+    try {
+      return await work(db)
+    } catch (e) {
+      broken = isConnectionLost(e)
+      if (broken && attempt === 1 && db.completed === 0) continue
+      throw e
+    } finally {
+      client.release(broken) // true = destroy the dead connection instead of returning it to the pool
+    }
+  }
 }
 
-async function loadSandbox(db: Queryable, id: string, lock: boolean): Promise<Sandbox | null> {
-  const { rows } = await db.query(`SELECT * FROM sandboxes WHERE id = $1 ${lock ? 'FOR UPDATE' : ''}`, [id])
+// One round trip loads a whole sandbox: the row plus its transactions (and idempotency keys) as JSON.
+// Before: 3 queries per read (sandbox, transactions, keys) = 3 round trips.
+const TX_JSON = `json_build_object('id', t.id, 'name', t.name, 'type', t.type, 'category', t.category,
+  'amount_cents', t.amount_cents, 'booked_at', t.booked_at, 'status', t.status,
+  'counterparty_iban', t.counterparty_iban, 'note', t.note)`
+
+async function loadSandbox(db: Queryable, id: string, opts: { keys: boolean }): Promise<Sandbox | null> {
+  const { rows } = await db.query(
+    `SELECT s.*,
+       COALESCE((SELECT json_agg(${TX_JSON} ORDER BY t.booked_at DESC, t.seq DESC)
+                   FROM transactions t WHERE t.sandbox_id = s.id), '[]') AS txs,
+       ${opts.keys
+         ? `COALESCE((SELECT json_agg(json_build_object('key', k.key, 'fingerprint', k.fingerprint, 'status', k.status, 'body', k.body))
+                   FROM idempotency_keys k WHERE k.sandbox_id = s.id), '[]')`
+         : `'[]'::json`} AS keys
+     FROM sandboxes s
+     WHERE s.id = $1`,
+    [id],
+  )
   if (rows.length === 0) return null
   const s = rows[0]
 
-  const txs = await db.query(
-    'SELECT * FROM transactions WHERE sandbox_id = $1 ORDER BY booked_at DESC, seq DESC',
-    [id],
-  )
-  const keys = await db.query('SELECT key, fingerprint, status, body FROM idempotency_keys WHERE sandbox_id = $1', [id])
+  type TxRow = {
+    id: string; name: string; type: Transaction['type']; category: string; amount_cents: number
+    booked_at: string; status: Transaction['status']; counterparty_iban: string | null; note: string | null
+  }
+  type KeyRow = { key: string; fingerprint: string; status: number; body: unknown }
 
   return {
     id: s.id,
     createdAt: s.created_at.toISOString(),
     account: { holder: s.holder, iban: s.iban, balanceCents: s.balance_cents, currency: 'EUR' },
-    transactions: txs.rows.map(
+    transactions: (s.txs as TxRow[]).map(
       (t): Transaction => ({
         id: t.id,
         name: t.name,
         type: t.type,
         category: t.category,
-        amountCents: t.amount_cents,
-        bookedAt: t.booked_at.toISOString(),
+        amountCents: Number(t.amount_cents),
+        bookedAt: new Date(t.booked_at).toISOString(),
         status: t.status,
         ...(t.counterparty_iban ? { counterpartyIban: t.counterparty_iban } : {}),
         ...(t.note ? { note: t.note } : {}),
@@ -101,95 +152,101 @@ async function loadSandbox(db: Queryable, id: string, lock: boolean): Promise<Sa
     },
     authenticated: s.authenticated,
     idempotency: Object.fromEntries(
-      keys.rows.map((k): [string, IdempotencyRecord] => [k.key, { fingerprint: k.fingerprint, status: k.status, body: k.body }]),
+      (s.keys as KeyRow[]).map((k): [string, IdempotencyRecord] => [k.key, { fingerprint: k.fingerprint, status: k.status, body: k.body }]),
     ),
   }
 }
 
-async function insertTransactions(db: Queryable, sandboxId: string, transactions: Transaction[]) {
-  for (const t of transactions) {
-    await db.query(
-      `INSERT INTO transactions
-         (id, sandbox_id, seq, name, type, category, amount_cents, booked_at, status, counterparty_iban, note)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-      [
-        t.id,
-        sandboxId,
-        Number(t.id.split('_')[2]),
-        t.name,
-        t.type,
-        t.category,
-        t.amountCents,
-        t.bookedAt,
-        t.status,
-        t.counterpartyIban ?? null,
-        t.note ?? null,
-      ],
-    )
-  }
-}
+/** Transactions as one JSON parameter → json_to_recordset inserts them all in ONE statement. */
+const txRecords = (transactions: Transaction[]) =>
+  JSON.stringify(
+    transactions.map((t) => ({
+      id: t.id,
+      seq: Number(t.id.split('_')[2]),
+      name: t.name,
+      type: t.type,
+      category: t.category,
+      amount_cents: t.amountCents,
+      booked_at: t.bookedAt,
+      status: t.status,
+      counterparty_iban: t.counterpartyIban ?? null,
+      note: t.note ?? null,
+    })),
+  )
 
-/** Writes what mutate() changed: the account/PIN row, NEW transactions and NEW idempotency keys. */
+const TX_RECORDSET = `json_to_recordset($TX::json) AS t(id text, seq integer, name text, type text, category text,
+  amount_cents bigint, booked_at timestamptz, status text, counterparty_iban text, note text)`
+const TX_COLUMNS = 'id, sandbox_id, seq, name, type, category, amount_cents, booked_at, status, counterparty_iban, note'
+const TX_VALUES = 't.id, $1, t.seq, t.name, t.type, t.category, t.amount_cents, t.booked_at, t.status, t.counterparty_iban, t.note'
+
+/**
+ * Writes what mutate() changed – account/PIN row, NEW transactions, NEW idempotency keys – in ONE statement.
+ * Before: one UPDATE + one INSERT per new row = several round trips.
+ */
 async function persistChanges(db: Queryable, before: Sandbox, after: Sandbox) {
+  const known = new Set(before.transactions.map((t) => t.id))
+  const newKeys = Object.entries(after.idempotency ?? {})
+    .filter(([key]) => !before.idempotency?.[key])
+    .map(([key, r]) => ({ key, fingerprint: r.fingerprint, status: r.status, body: r.body }))
+
   await db.query(
-    `UPDATE sandboxes
-        SET balance_cents = $2, pin_failed_attempts = $3, pin_locked_until = $4, authenticated = $5
-      WHERE id = $1`,
+    `WITH acc AS (
+       UPDATE sandboxes
+          SET balance_cents = $2, pin_failed_attempts = $3, pin_locked_until = $4, authenticated = $5
+        WHERE id = $1
+     ),
+     txs AS (
+       INSERT INTO transactions (${TX_COLUMNS})
+       SELECT ${TX_VALUES} FROM ${TX_RECORDSET.replace('$TX', '$6')}
+     ),
+     keys AS (
+       INSERT INTO idempotency_keys (sandbox_id, key, fingerprint, status, body)
+       SELECT $1, k.key, k.fingerprint, k.status, k.body
+         FROM json_to_recordset($7::json) AS k(key text, fingerprint text, status integer, body jsonb)
+     )
+     SELECT 1`,
     [
       after.id,
       after.account.balanceCents,
       after.pin.failedAttempts,
       after.pin.lockedUntil === null ? null : new Date(after.pin.lockedUntil),
       after.authenticated,
+      txRecords(after.transactions.filter((t) => !known.has(t.id))),
+      JSON.stringify(newKeys),
     ],
   )
-
-  const known = new Set(before.transactions.map((t) => t.id))
-  await insertTransactions(db, after.id, after.transactions.filter((t) => !known.has(t.id)))
-
-  for (const [key, record] of Object.entries(after.idempotency ?? {})) {
-    if (before.idempotency?.[key]) continue
-    await db.query(
-      'INSERT INTO idempotency_keys (sandbox_id, key, fingerprint, status, body) VALUES ($1, $2, $3, $4, $5)',
-      [after.id, key, record.fingerprint, record.status, JSON.stringify(record.body)],
-    )
-  }
 }
 
 /** Maps low-level failures to errors the API turns into 409 / 503 instead of a bare 500. */
 function translate(error: unknown): never {
   const code = (error as { code?: string }).code
   if (code === '55P03' || code === '40P01') throw new WriteConflictError() // lock timeout / deadlock
-  if (code === 'ECONNREFUSED' || code === 'ENOTFOUND' || code === 'ETIMEDOUT' || code === '57P01') {
-    throw new StoreUnavailableError(`Database unavailable (${code})`)
+  if (code === 'ECONNREFUSED' || code === 'ENOTFOUND' || code === 'ETIMEDOUT' || code === '57P01' || isConnectionLost(error)) {
+    throw new StoreUnavailableError(`Database unavailable (${code ?? 'connection lost'})`)
   }
   throw error
 }
 
 function postgresRepo(): SandboxRepo {
   return {
-    async get(id) {
-      try {
-        const { db, release } = await connect()
-        try {
-          return await loadSandbox(db, id, false)
-        } finally {
-          release()
-        }
-      } catch (e) {
-        return translate(e)
-      }
-    },
+    // 1 round trip
+    get: (id) => withClient((db) => loadSandbox(db, id, { keys: false })).catch(translate),
 
-    async create(sandbox) {
-      const { db: client, release } = await connect()
-      try {
-        await client.query('BEGIN')
-        // housekeeping: demo sandboxes live 24 h (keeps the free-tier database small)
-        await client.query(`DELETE FROM sandboxes WHERE created_at < now() - interval '${SANDBOX_TTL_HOURS} hours'`)
-        await client.query(
-          `INSERT INTO sandboxes (id, created_at, holder, iban, balance_cents, pin_failed_attempts, pin_locked_until, authenticated)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    // 1 round trip, atomic without BEGIN/COMMIT: a single statement either fully succeeds or not at all.
+    // Before: BEGIN, DELETE, INSERT sandbox, 12 × INSERT transaction, COMMIT = 16 round trips.
+    create: (sandbox) =>
+      withClient(async (db) => {
+        await db.query(
+          `WITH cleanup AS ( -- housekeeping: demo sandboxes live 24 h (keeps the free-tier database small)
+             DELETE FROM sandboxes WHERE created_at < now() - interval '${SANDBOX_TTL_HOURS} hours'
+           ),
+           s AS (
+             INSERT INTO sandboxes (id, created_at, holder, iban, balance_cents, pin_failed_attempts, pin_locked_until, authenticated)
+             VALUES ($1, $2, $3, $4, $5, $6, NULL, $7)
+             RETURNING id
+           )
+           INSERT INTO transactions (${TX_COLUMNS})
+           SELECT ${TX_VALUES} FROM s, ${TX_RECORDSET.replace('$TX', '$8')}`,
           [
             sandbox.id,
             sandbox.createdAt,
@@ -197,45 +254,44 @@ function postgresRepo(): SandboxRepo {
             sandbox.account.iban,
             sandbox.account.balanceCents,
             sandbox.pin.failedAttempts,
-            null,
             sandbox.authenticated,
+            txRecords(sandbox.transactions),
           ],
         )
-        await insertTransactions(client, sandbox.id, sandbox.transactions)
-        await client.query('COMMIT')
-      } catch (e) {
-        await client.query('ROLLBACK').catch(() => {})
-        translate(e)
-      } finally {
-        release()
-      }
-    },
+      }).catch(translate),
 
-    async update(id, mutate) {
-      const { db: client, release } = await connect()
-      try {
-        await client.query('BEGIN')
-        await client.query(`SET LOCAL lock_timeout = '${LOCK_TIMEOUT}'`)
-
-        const sandbox = await loadSandbox(client, id, true) // ← row lock held until COMMIT
-        if (!sandbox) {
-          await client.query('ROLLBACK')
-          return { found: false }
+    // 4 round trips when something changes (3 when not): BEGIN+SET+lock, load, write, COMMIT.
+    // Before: 7 (PIN) or 9 (transfer).
+    //
+    // The lock is taken by its OWN statement, before the load. Folding "FOR UPDATE" into the load query
+    // looked like a free saving, but under READ COMMITTED a statement keeps the snapshot it started with:
+    // after waiting for the lock it re-reads the locked sandbox ROW, yet its sub-selects still see the old
+    // snapshot – without the transaction a parallel request has just committed. Two parallel transfers then
+    // computed the same next transaction id. Caught by "5 PARALLEL transfers" (docs/journal.md P.3).
+    update: (id, mutate) =>
+      withClient(async (db) => {
+        if (!UUID.test(id)) return { found: false as const } // id goes into a simple-protocol query below
+        // three statements, ONE round trip (simple query protocol, no parameters → escaped literal)
+        await db.query(
+          `BEGIN; SET LOCAL lock_timeout = '${LOCK_TIMEOUT}'; SELECT 1 FROM sandboxes WHERE id = ${pg.escapeLiteral(id)} FOR UPDATE`,
+        )
+        try {
+          // a NEW statement → a new snapshot taken after the lock: sees everything committed before us
+          const sandbox = await loadSandbox(db, id, { keys: true })
+          if (!sandbox) {
+            await db.query('ROLLBACK')
+            return { found: false as const }
+          }
+          const before = structuredClone(sandbox)
+          const { result, changed } = await mutate(sandbox)
+          if (changed) await persistChanges(db, before, sandbox)
+          await db.query('COMMIT')
+          return { found: true as const, result }
+        } catch (e) {
+          await db.query('ROLLBACK').catch(() => {})
+          throw e
         }
-
-        const before = structuredClone(sandbox)
-        const { result, changed } = await mutate(sandbox)
-        if (changed) await persistChanges(client, before, sandbox)
-
-        await client.query('COMMIT')
-        return { found: true, result }
-      } catch (e) {
-        await client.query('ROLLBACK').catch(() => {})
-        return translate(e)
-      } finally {
-        release()
-      }
-    },
+      }).catch(translate),
   }
 }
 

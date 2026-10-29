@@ -1,24 +1,29 @@
-// Lab: serves the BUILT Netlify functions (netlify/functions/*.mjs) with the routing of netlify.toml,
-// so scripts/latency.mjs can measure them locally.   node scripts/lab/fn-server.mjs  (port 8888)
+// Lab: serves the BUILT API function (netlify/functions/api.mjs) the way netlify.toml does
+// (/api/* → /.netlify/functions/api/:splat), so scripts/latency.mjs can measure it locally.
+//   node scripts/lab/fn-server.mjs   (port 8888, run from the repo root after scripts/build-functions.mjs)
 import http from 'node:http'
 import path from 'node:path'
+
 const root = process.argv[2] ?? process.cwd()
-const fns = {}
-const fn = async (n) => (fns[n] ??= (await import(path.join(root, `netlify/functions/${n}.mjs`))).default)
-function route(p) {
-  const fixed = { '/api/iban/validate': 'iban-validate', '/api/demo/session': 'demo-session', '/api/auth/pin': 'auth-pin' }
-  if (fixed[p]) return [fixed[p], '']
-  let m = /^\/api\/transactions\/([^/]+)$/.exec(p); if (m) return ['transaction-detail', `id=${m[1]}`]
-  m = /^\/api\/(.+)$/.exec(p); if (m) return [m[1], '']
-  return null
-}
-http.createServer(async (req, res) => {
-  const url = new URL(req.url, 'http://localhost:8888')
-  const r = route(url.pathname)
-  if (!r) { res.writeHead(404); return res.end() }
-  const chunks = []; for await (const c of req) chunks.push(c)
-  if (r[1]) url.search = (url.search ? url.search + '&' : '?') + r[1]
-  const out = await (await fn(r[0]))(new Request(url, { method: req.method, headers: req.headers, body: ['GET', 'HEAD'].includes(req.method) ? undefined : Buffer.concat(chunks) }))
-  const h = {}; out.headers.forEach((v, k) => { h[k] = v }); const sc = out.headers.getSetCookie?.(); if (sc?.length) h['set-cookie'] = sc
-  res.writeHead(out.status, h); res.end(Buffer.from(await out.arrayBuffer()))
-}).listen(8888, () => console.log('functions on :8888'))
+const api = (await import(path.join(root, 'netlify/functions/api.mjs'))).default
+
+http
+  .createServer(async (req, res) => {
+    const url = new URL(req.url, 'http://localhost:8888')
+    if (!url.pathname.startsWith('/api/')) {
+      res.writeHead(404)
+      return res.end()
+    }
+    url.pathname = `/.netlify/functions/api${url.pathname.slice(4)}` // the Netlify rewrite
+    const chunks = []
+    for await (const c of req) chunks.push(c)
+    const body = ['GET', 'HEAD'].includes(req.method) ? undefined : Buffer.concat(chunks)
+    const out = await api(new Request(url, { method: req.method, headers: req.headers, body }))
+    const headers = {}
+    out.headers.forEach((v, k) => (headers[k] = v))
+    const cookies = out.headers.getSetCookie?.()
+    if (cookies?.length) headers['set-cookie'] = cookies
+    res.writeHead(out.status, headers)
+    res.end(Buffer.from(await out.arrayBuffer()))
+  })
+  .listen(8888, () => console.log('API on :8888'))

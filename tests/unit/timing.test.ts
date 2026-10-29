@@ -33,8 +33,8 @@ describe('Server-Timing', () => {
   })
 
   it('every API response carries the header (contract)', async () => {
-    const health = (await import('../../api/functions/health.mts')).default
-    const res = await health(new Request('http://x/api/health'))
+    const api = (await import('../../api/functions/api.mts')).default
+    const res = await api(new Request('http://x/api/health'))
     expect(res.headers.get('server-timing')).toMatch(/db;dur=0\.0;desc="0 queries"/)
   })
 })

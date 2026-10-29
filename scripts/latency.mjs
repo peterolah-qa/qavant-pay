@@ -56,23 +56,18 @@ async function journey() {
     steps.push({ name, ...r })
     return r
   }
-  await step('1 account (no session → 401)', 'GET', '/api/account')
-  await step('2 demo/session (create sandbox)', 'POST', '/api/demo/session')
-  await step('3 auth/pin', 'POST', '/api/auth/pin', { pin: '1234' })
-  // the dashboard asks for both at once
-  const [a, t] = await Promise.all([
-    call(cookie, 'GET', '/api/account'),
-    call(cookie, 'GET', '/api/transactions?limit=4'),
-  ])
-  steps.push({ name: '4 dashboard: account', ...a }, { name: '4 dashboard: transactions', ...t })
-  const list = await step('5 history (10)', 'GET', '/api/transactions?limit=10')
+  // exactly what the web app does
+  await step('1 app start (session)', 'POST', '/api/session')
+  await step('2 PIN (+ dashboard data)', 'POST', '/api/auth/pin', { pin: '1234' })
+  await step('3 dashboard later (GET)', 'GET', '/api/dashboard')
+  const list = await step('4 history (10)', 'GET', '/api/transactions?limit=10')
   const firstId = JSON.parse(list.body).items?.[0]?.id
-  await step('6 detail', 'GET', `/api/transactions/${firstId}`)
-  await step('7 transfer', 'POST', '/api/transfers', { recipientName: 'Latency Test', iban: VALID_IBAN, amountCents: 100 }, {
+  await step('5 detail', 'GET', `/api/transactions/${firstId}`)
+  await step('6 transfer', 'POST', '/api/transfers', { recipientName: 'Latency Test', iban: VALID_IBAN, amountCents: 100 }, {
     'Idempotency-Key': crypto.randomUUID(),
   })
   // what the visitor feels: open the page → see the dashboard (PIN typing time excluded)
-  const toDashboard = steps[0].ms + steps[1].ms + steps[2].ms + Math.max(a.ms, t.ms)
+  const toDashboard = steps[0].ms + steps[1].ms
   return { steps, toDashboard }
 }
 

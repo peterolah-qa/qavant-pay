@@ -3,7 +3,6 @@ import { queryTransactions, type TxFilter } from '@qavant-pay/core'
 import { loadAuthenticatedSandbox } from '../lib/auth.ts'
 import { error, json, methodNotAllowed } from '../lib/http.ts'
 import { sandboxRepo } from '../lib/store.ts'
-import { withTiming } from '../lib/timing.ts'
 
 const MESSAGES = {
   INVALID_TYPE: 'type must be one of: all, income, spending, bills',
@@ -31,4 +30,4 @@ const handler = async (req: Request) => {
   return json(result.page, 200, { 'Cache-Control': 'no-store' })
 }
 
-export default withTiming(handler)
+export default handler

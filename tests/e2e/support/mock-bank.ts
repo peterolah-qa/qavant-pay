@@ -61,6 +61,15 @@ export async function mockBank(page: Page, options: Options = {}) {
   /** query string of every history request – e.g. to prove the search is debounced */
   const historyRequests: URLSearchParams[] = []
 
+  const dashboard = () => ({ account: { ...MOCK_ACCOUNT, balanceCents }, recent: transactions.slice(0, 4) })
+
+  // app start – like the server: PIN already entered → 'app' + dashboard data, otherwise 'pin'
+  await page.route('**/api/session', (route) =>
+    authenticated ? json(route, 200, { stage: 'app', dashboard: dashboard() }) : json(route, 201, { stage: 'pin' }),
+  )
+  await page.route('**/api/dashboard', (route) =>
+    authenticated ? json(route, 200, dashboard()) : json(route, 401, { code: 'PIN_REQUIRED' }),
+  )
   await page.route('**/api/account', (route) =>
     authenticated ? json(route, 200, { ...MOCK_ACCOUNT, balanceCents }) : json(route, 401, { code: 'PIN_REQUIRED' }),
   )
@@ -96,7 +105,9 @@ export async function mockBank(page: Page, options: Options = {}) {
     if (reply === 'network-error') return route.abort('internetdisconnected')
     if (reply.status === 200) authenticated = true
     if (reply.status === 401) wrong++
-    return json(route, reply.status, reply.body)
+    // the realistic server sends the dashboard along; a custom onPin reply does not → the app must fetch it
+    const body = reply.status === 200 && !options.onPin ? { ...(reply.body as object), dashboard: dashboard() } : reply.body
+    return json(route, reply.status, body)
   })
 
   await page.route('**/api/transfers', async (route) => {

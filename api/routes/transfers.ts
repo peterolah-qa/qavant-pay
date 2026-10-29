@@ -11,7 +11,6 @@ import { pinRequired, sessionExpired, unauthenticated } from '../lib/auth.ts'
 import { error, methodNotAllowed } from '../lib/http.ts'
 import { isExpired, readSessionId } from '../lib/session.ts'
 import { StoreUnavailableError, WriteConflictError, sandboxRepo } from '../lib/store.ts'
-import { withTiming } from '../lib/timing.ts'
 
 const IDEMPOTENCY_KEY = /^[A-Za-z0-9_-]{8,64}$/
 
@@ -120,4 +119,4 @@ const handler = async (req: Request) => {
   }
 }
 
-export default withTiming(handler)
+export default handler

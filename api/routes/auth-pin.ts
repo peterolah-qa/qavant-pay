@@ -7,7 +7,7 @@ import { sessionExpired, unauthenticated } from '../lib/auth.ts'
 import { error, json, methodNotAllowed } from '../lib/http.ts'
 import { isExpired, readSessionId } from '../lib/session.ts'
 import { StoreUnavailableError, WriteConflictError, sandboxRepo } from '../lib/store.ts'
-import { withTiming } from '../lib/timing.ts'
+import { dashboardView, type DashboardView } from '../lib/views.ts'
 
 const handler = async (req: Request) => {
   if (req.method !== 'POST') return methodNotAllowed('POST')
@@ -28,12 +28,13 @@ const handler = async (req: Request) => {
   const now = new Date()
   let outcome
   try {
-    outcome = await sandboxRepo().update<PinAttempt | 'EXPIRED'>(id, (sandbox) => {
+    outcome = await sandboxRepo().update<{ attempt: PinAttempt; dashboard: DashboardView } | 'EXPIRED'>(id, (sandbox) => {
       if (isExpired(sandbox.createdAt, now)) return { result: 'EXPIRED', changed: false }
       const attempt = attemptPin(sandbox.pin, pin, DEMO_PIN, now.getTime())
       sandbox.pin = attempt.state
       if (attempt.result === 'OK') sandbox.authenticated = true
-      return { result: attempt, changed: true }
+      // the dashboard data rides along with the answer → the app shows it without another request
+      return { result: { attempt, dashboard: dashboardView(sandbox) }, changed: true }
     })
   } catch (e) {
     if (e instanceof WriteConflictError) return error(409, 'CONFLICT', 'Too many parallel requests, try again')
@@ -43,10 +44,10 @@ const handler = async (req: Request) => {
 
   if (!outcome.found || outcome.result === 'EXPIRED') return sessionExpired()
 
-  const attempt = outcome.result
+  const { attempt, dashboard } = outcome.result
   switch (attempt.result) {
     case 'OK':
-      return json({ authenticated: true })
+      return json({ authenticated: true, dashboard }, 200, { 'Cache-Control': 'no-store' })
     case 'WRONG':
       return Response.json(
         { code: 'WRONG_PIN', message: 'Wrong PIN', attemptsLeft: attempt.attemptsLeft },
@@ -60,4 +61,4 @@ const handler = async (req: Request) => {
   }
 }
 
-export default withTiming(handler)
+export default handler
