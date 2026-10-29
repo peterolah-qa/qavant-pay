@@ -55,9 +55,6 @@ export function DashboardScreen({ onSessionLost }: { onSessionLost: () => void }
   return (
     <main className={styles.screen} data-testid="dashboard-screen">
       <header className={styles.greeting}>
-        <div className={styles.avatar} aria-hidden="true">
-          {account.holder.slice(0, 1)}
-        </div>
         <div>
           <p className={styles.muted}>Welcome back</p>
           <h1 className={styles.name} data-testid="dashboard-holder">

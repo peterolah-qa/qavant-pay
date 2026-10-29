@@ -162,6 +162,17 @@ Mutation tests today: 9 deliberate bugs, 8 caught at once; 1 survived (the recon
 
 ---
 
+## Phase 5 – redesign "Obsidian Cyber-Fintech"
+
+### R.0 Design review before a single line of code (#61)
+- **Input:** 4 Stitch screens + DESIGN.md + PRD v1.0.
+- **Reviewed as QA**, not just copied: contrast of every token pair (all ≥ 4.5:1), WCAG 2.2 (the swipe-only control fails 2.5.7), third-party requests (fonts, icons, Tailwind, photos all from CDNs), trademarks (Lidl logo), and **claims the app does not keep** ("quantum", "biometric", "encrypted").
+- **Decision that matters most:** the security claims become real features (R8: passkeys, AES-256-GCM, hash-chained ledger) instead of decoration. A security-minded reviewer would otherwise read them as dishonest.
+- **First feedback on real screens:** the lime accent of the design was "annoying". Instead of arguing about adjectives, 4 palettes were rendered on the same layout; Ion Violet (violet + mint) was picked in one look. The palette lives in one tokens file, so the change touched no component.
+- **R0 delivered:** Ion Violet tokens with subtle cyber details, new favicon + home-screen icon, self-hosted fonts, inline icons, header + floating bottom navigation, honest "in development" tabs. All 62 existing tests stayed green and 6 new ones were added (navigation, keyboard, axe, **no third-party request**, favicon). 3 mutants: removed `aria-current`, Google Fonts link back, icon-only tabs. All 3 caught.
+
+---
+
 ## Numbers (after PR #52)
 
 | Layer | Tests |
