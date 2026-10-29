@@ -182,6 +182,20 @@ Mutation tests today: 9 deliberate bugs, 8 caught at once; 1 survived (the recon
 - **What:** `vite` 8.3.0–8.3.2 bundles `launch-editor` with command-execution advisories (GHSA-r825-w8mm-5pxw and two more). Dev server only – not in the production bundle – but it was on `main` already.
 - **Fix:** `vite` 8.3.5, `npm audit` → 0 vulnerabilities. Same lesson as P.5: warnings in a green run are findings.
 
+### R.3 The fix from R.1 was green in the lab and red on the real preview
+- **What happened:** PR #71 was merged with the R.1 fix and production went green (121 tests). The deploy-preview run of the same commit then failed with **the same 4 tests**, and the Netlify Drawer still intercepted the clicks.
+- **Why the lab lied:** my fake drawer was a plain `<iframe>` that loaded from netlify.com, so blocking netlify.com and a page stylesheet were enough. The CI log showed something different. The drawer sits in a host `<div data-netlify-deploy-id …>`, it is injected from **the app's own origin**, and its iframe lives in a **shadow root**. Blocking requests leaves the iframe element in place (it just stays empty but still covers the nav), and page CSS cannot reach into a shadow root. The simulation matched the *symptom* and not the *mechanism*.
+- **Lab fixed first:** `scripts/lab/fake-preview-server.mjs` now injects the drawer like the CI log shows it (same origin, host div, shadow root, `!important` inline styles), with `SHADOW=closed|open|none`. With the R.1 fix it fails the **same 4 tests as CI**. Only after that was the new fix written.
+- **Fix:** an init script that runs before any page script, watches the DOM with a `MutationObserver` and removes the drawer (`[data-netlify-deploy-id]`, `iframe[title="Netlify Drawer"]`). It watches shadow roots too, including closed ones, by wrapping `attachShadow` before the drawer code runs.
+- **Proof, 3 shapes × control/fix:** control (fix inactive) = 4 real failures in every shape; with the fix = 0 real failures (the remaining one is the lab-only DNS artifact of the `request` fixture). The final proof is the preview run of the PR that ships it.
+- **Lesson:** a reproduction is only evidence when it fails **the same way** as the real thing. Check the mechanism in the real log, not just the symptom.
+
+### R.4 Merged without a green check
+- **What happened:** `git push` followed immediately by `gh pr checks 71 --watch` printed "no checks reported". GitHub had not registered the checks for the new commit yet, and `gh pr merge` on the next line went through. The base-branch policy blocks a merge only when a check has **already failed**, and here none existed yet.
+- **Damage:** none for users (production run green), but `main` contained a test fix that did not work on previews. Every following PR would have been red.
+- **Process fix:** commands are chained with `&&` (merge runs only after a successful watch), with a short wait before the watch. Recommended next: make *Lint · typecheck · build* and *Playwright vs Netlify deploy* **required status checks** on `main`. Then a merge without checks is impossible, and `gh pr merge --auto` can be used.
+- **Lesson:** "no checks" is not "green checks". Automate the gate instead of relying on the order of terminal lines.
+
 ---
 
 ## Numbers (after PR #52)
