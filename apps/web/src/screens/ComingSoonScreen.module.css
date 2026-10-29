@@ -1,0 +1,70 @@
+.card {
+  position: relative;
+  overflow: hidden;
+  padding: var(--space-lg) 20px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.halo {
+  position: absolute;
+  top: -64px;
+  right: -48px;
+  width: 192px;
+  height: 192px;
+  border-radius: 50%;
+  background: var(--glow-violet);
+  opacity: 0.35;
+  filter: blur(48px);
+  pointer-events: none;
+}
+
+.icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-md);
+  background: var(--surface-high);
+  color: var(--violet);
+  box-shadow: 0 0 18px var(--glow-violet);
+}
+
+.kicker {
+  margin: var(--space-sm) 0 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  line-height: 30px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-high);
+}
+
+.text {
+  margin: 0;
+  color: var(--on-surface-variant);
+}
+
+.list {
+  margin: var(--space-sm) 0 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--on-surface);
+}
+
+.list li::marker {
+  color: var(--violet);
+  box-shadow: 0 0 18px var(--glow-violet);
+}

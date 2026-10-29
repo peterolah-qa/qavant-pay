@@ -1,7 +1,6 @@
 .screen {
-  max-width: 430px;
-  margin: 0 auto;
-  padding: 40px 20px;
+  /* inside the app shell, which provides the page margins (R1 redesigns this screen) */
+  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -127,7 +126,7 @@
 }
 
 .income {
-  color: var(--accent);
+  color: var(--mint);
 }
 
 .actions {

@@ -5,6 +5,9 @@ import { DashboardScreen } from './screens/DashboardScreen.tsx'
 import { HistoryScreen } from './screens/history/HistoryScreen.tsx'
 import { TransactionDetailScreen } from './screens/history/TransactionDetailScreen.tsx'
 import { NotFoundScreen } from './screens/NotFoundScreen.tsx'
+import { ComingSoonScreen } from './screens/ComingSoonScreen.tsx'
+import { AppShell } from './shell/AppShell.tsx'
+import { CardIcon, LockIcon, StatsIcon } from './icons.tsx'
 import { PinScreen } from './screens/PinScreen.tsx'
 import { TransferScreen } from './screens/transfer/TransferScreen.tsx'
 
@@ -24,7 +27,51 @@ async function resolveStage(): Promise<Stage> {
 /** Screens behind the PIN. The URL survives the login: a deep link to /transfer lands on /transfer. */
 function Routes({ onSessionLost }: { onSessionLost: () => void }) {
   const path = usePath()
-  if (path === '/') return <DashboardScreen onSessionLost={onSessionLost} />
+  if (path === '/')
+    return (
+      <AppShell label="Home">
+        <DashboardScreen onSessionLost={onSessionLost} />
+      </AppShell>
+    )
+  if (path === '/cards')
+    return (
+      <AppShell label="Cards">
+        <ComingSoonScreen
+          id="cards"
+          icon={<CardIcon size={26} />}
+          issue="#65"
+          title="Cards hub"
+          text="Your virtual card with real controls, stored on the server."
+          features={['Reveal the card number after PIN / passkey', 'Freeze, online, ATM and wallet switches', 'Monthly spending limit', 'One-time burner cards and a rotating card number']}
+        />
+      </AppShell>
+    )
+  if (path === '/stats')
+    return (
+      <AppShell label="Stats">
+        <ComingSoonScreen
+          id="stats"
+          icon={<StatsIcon size={26} />}
+          issue="#67"
+          title="Spending analytics"
+          text="Where your money goes, computed from your own ledger."
+          features={['Income vs spending this month', 'Spending by category and top merchants', 'Daily trend']}
+        />
+      </AppShell>
+    )
+  if (path === '/vaults')
+    return (
+      <AppShell label="Vaults">
+        <ComingSoonScreen
+          id="vaults"
+          icon={<LockIcon size={26} />}
+          issue="#68"
+          title="Savings vaults"
+          text="Put money aside for a goal – by hand or automatically."
+          features={['Vaults with a goal and progress', 'Deposit and withdraw', 'Round-up of card payments']}
+        />
+      </AppShell>
+    )
   if (path === '/transfer') return <TransferScreen onSessionLost={onSessionLost} />
   if (path === '/history') return <HistoryScreen onSessionLost={onSessionLost} />
   const txId = matchTransactionPath(path)

@@ -162,6 +162,28 @@ Mutation tests today: 9 deliberate bugs, 8 caught at once; 1 survived (the recon
 
 ---
 
+## Phase 5 – redesign "Obsidian Cyber-Fintech"
+
+### R.0 Design review before a single line of code (#61)
+- **Input:** 4 Stitch screens + DESIGN.md + PRD v1.0.
+- **Reviewed as QA**, not just copied: contrast of every token pair (all ≥ 4.5:1), WCAG 2.2 (the swipe-only control fails 2.5.7), third-party requests (fonts, icons, Tailwind, photos all from CDNs), trademarks (Lidl logo), and **claims the app does not keep** ("quantum", "biometric", "encrypted").
+- **Decision that matters most:** the security claims become real features (R8: passkeys, AES-256-GCM, hash-chained ledger) instead of decoration. A security-minded reviewer would otherwise read them as dishonest.
+- **First feedback on real screens:** the lime accent of the design was "annoying". Instead of arguing about adjectives, 4 palettes were rendered on the same layout; Ion Violet (violet + mint) was picked in one look. The palette lives in one tokens file, so the change touched no component.
+- **R0 delivered:** Ion Violet tokens with subtle cyber details, new favicon + home-screen icon, self-hosted fonts, inline icons, header + floating bottom navigation, honest "in development" tabs. All 62 existing tests stayed green and 6 new ones were added (navigation, keyboard, axe, **no third-party request**, favicon). 3 mutants: removed `aria-current`, Google Fonts link back, icon-only tabs. All 3 caught.
+
+### R.1 The Netlify Drawer again – this time it blocked clicks (PR #71)
+- **Symptom:** all 68 E2E tests green locally, then 4 shell tests red on the deploy preview: `locator.click: Test timeout` – the element was "visible, enabled and stable", yet the click never landed.
+- **Root cause (from the CI annotation):** `<iframe title="Netlify Drawer">` intercepted pointer events. Netlify injects its review drawer into **deploy previews only**, floating over the bottom of the page – exactly where the new bottom navigation lives. The third-party test failed for the same reason: the drawer loads from netlify.com.
+- **Reproduced before fixing:** a local "fake preview" (`deploy-preview-71--…` host mapped to a local server that injects a drawer iframe like Netlify does) – **9 tests red without the fix, all green with it.** Side trap: `netlify.app` is on Chrome's HSTS preload list, so the fake host must not end in `netlify.app`.
+- **Fix in the test infrastructure, not in the app:** on deploy previews the `page` fixture blocks Netlify's tooling hosts before the page loads, plus a CSS safety net by the iframe title. The exception is narrow and unit-tested (look-alike hosts and real third parties such as Google Fonts stay visible), and the run against **production** after every merge still allows no third-party request at all.
+- **Lesson:** "preview ≠ production" (3.4) came back in a new shape. Environment-specific overlays are part of the system under test – model them explicitly instead of retrying until green.
+
+### R.2 `npm install` said "1 high severity vulnerability" – read it
+- **What:** `vite` 8.3.0–8.3.2 bundles `launch-editor` with command-execution advisories (GHSA-r825-w8mm-5pxw and two more). Dev server only – not in the production bundle – but it was on `main` already.
+- **Fix:** `vite` 8.3.5, `npm audit` → 0 vulnerabilities. Same lesson as P.5: warnings in a green run are findings.
+
+---
+
 ## Numbers (after PR #52)
 
 | Layer | Tests |

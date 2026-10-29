@@ -1,24 +1,65 @@
-/* Qavant Pay design tokens – one dark theme */
+/* Qavant Pay design tokens – "Ion Violet" (chosen 29 Oct 2026 from 4 palette options; layout and type from
+   the Stitch design, DESIGN.md). Old names (--bg, --surface-1, --accent …) stay as aliases, so every screen
+   picks up the palette at once. Every text/background pair is ≥ 4.5:1 (checked by script and by axe in CI). */
 :root {
-  --bg: #0b0e13;
-  --surface-1: #171b22;
-  --surface-2: #232834;
-  --border: #262c37;
-  --text: #f2f4f7;
-  --text-2: #c9cfda;
-  --text-muted: #9aa3b2;
-  --text-faint: #7d8596; /* ≥ 4.5:1 on --bg and --surface-1 (WCAG AA), found by axe */
-  --accent: #c6f24e;
-  --accent-ink: #0b0e13;
+  /* surfaces, darkest → lightest */
+  --surface-lowest: #0b0a12; /* page */
+  --surface: #100e19;
+  --surface-low: #16131f; /* cards */
+  --surface-mid: #1f1b2c; /* chips, inputs */
+  --surface-high: #2c2740; /* raised / borders */
+  --surface-highest: #38324f;
+
+  /* text */
+  --text-high: #ffffff;
+  --on-surface: #ebe8f5; /* 15.2:1 on cards */
+  --on-surface-variant: #c9c3dc; /* 10.7:1 on cards */
+  --muted: #9790ab; /* 6.0:1 on cards, 4.7:1 on --surface-high */
+
+  /* accents */
+  --violet: #a88bff; /* primary – 6.8:1 on cards */
+  --mint: #3fe0c5; /* secondary: security, positive amounts, status */
+  --on-violet: #170d33; /* text on violet buttons – 6.8:1 */
+  --negative: #ff7aa2;
+  --glow-violet: rgb(168 139 255 / 0.35);
+  --glow-mint: rgb(63 224 197 / 0.35);
+  --edge-violet: rgb(168 139 255 / 0.55);
+  --edge-mint: rgb(63 224 197 / 0.45);
+
+  /* fonts */
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-body: 'Hanken Grotesk', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* layout */
+  --margin: 20px;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --header-h: 64px;
+  --nav-h: 64px;
+
+  /* radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-pill: 999px;
+
+  /* aliases used by the pre-redesign screens */
+  --bg: var(--surface-lowest);
+  --surface-1: var(--surface-low);
+  --surface-2: var(--surface-high);
+  --border: var(--surface-high);
+  --text: var(--on-surface);
+  --text-2: var(--on-surface-variant);
+  --text-muted: var(--muted);
+  --text-faint: var(--muted);
+  --accent: var(--violet);
+  --accent-ink: var(--on-violet);
   --warning: #f5b94a;
   --warning-bg: #2a2215;
-  --danger: #f2766b;
-
-  --font-body: 'Manrope', system-ui, sans-serif;
-  --font-display: 'Space Grotesk', 'Manrope', system-ui, sans-serif;
-
-  --radius-sm: 12px;
-  --radius-md: 16px;
-  --radius-lg: 28px;
-  --radius-pill: 999px;
+  --danger: var(--negative);
 }
