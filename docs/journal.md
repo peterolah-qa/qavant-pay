@@ -189,6 +189,7 @@ Mutation tests today: 9 deliberate bugs, 8 caught at once; 1 survived (the recon
 - **Fix:** an init script that runs before any page script, watches the DOM with a `MutationObserver` and removes the drawer (`[data-netlify-deploy-id]`, `iframe[title="Netlify Drawer"]`). It watches shadow roots too, including closed ones, by wrapping `attachShadow` before the drawer code runs.
 - **Proof, 3 shapes × control/fix:** control (fix inactive) = 4 real failures in every shape; with the fix = 0 real failures (the remaining one is the lab-only DNS artifact of the `request` fixture). The final proof is the preview run of the PR that ships it.
 - **Lesson:** a reproduction is only evidence when it fails **the same way** as the real thing. Check the mechanism in the real log, not just the symptom.
+- **The lab had its own bug, and the control run caught it.** While making the drawer shape configurable, a missing semicolon (`const SHADOW = '…'` followed by `(() => …)()` on the next line) turned the injection into "call a string", so the fake drawer silently never appeared and every run would have been green. Every lab run is therefore paired with a **control run** where the fix is inactive, and the control must fail. A lab that cannot fail proves nothing, the same rule as for tests (2.4).
 
 ### R.4 Merged without a green check
 - **What happened:** `git push` followed immediately by `gh pr checks 71 --watch` printed "no checks reported". GitHub had not registered the checks for the new commit yet, and `gh pr merge` on the next line went through. The base-branch policy blocks a merge only when a check has **already failed**, and here none existed yet.
@@ -196,7 +197,39 @@ Mutation tests today: 9 deliberate bugs, 8 caught at once; 1 survived (the recon
 - **Process fix:** commands are chained with `&&` (merge runs only after a successful watch), with a short wait before the watch. Recommended next: make *Lint · typecheck · build* and *Playwright vs Netlify deploy* **required status checks** on `main`. Then a merge without checks is impossible, and `gh pr merge --auto` can be used.
 - **Lesson:** "no checks" is not "green checks". Automate the gate instead of relying on the order of terminal lines.
 
+### R.5 The repository had no README
+- **What:** after 70 issues and a deployed product, the repo's front page was empty. For a portfolio project that is the first thing a reviewer sees, and it said nothing.
+- **Done:** `README.md` written from what actually exists, every number checked against the code and the last CI run. It covers a live demo + PIN, real screenshots of the current app (taken by Playwright from the mocked bank, not the Stitch mockups), architecture and CI diagrams (Mermaid, render-checked), the test strategy per layer with counts, findings linked to this journal, performance before/after, security & privacy, business rules with their IDs, local setup and the roadmap.
+- **Honesty checks while writing:** the local commands were corrected after reading the config. `npm run dev` proxies `/api` to the deployed API, and the API and live suites skip on localhost. Planned security features are labelled as planned.
+- Covers part of #38 (demo, CI links, diagram); the GIF and a published report come with #36.
+
+### R.6 Day log – 29 Oct 2026, afternoon (redesign foundation)
+| Time | What happened | Evidence |
+| --- | --- | --- |
+| 13:30 | R0 complete locally: 199 + 68 tests green. `npm audit` showed 1 high → vite 8.3.5 | R.2 |
+| 13:40 | PR #71: 4 shell tests red on the preview, Netlify Drawer over the bottom nav | R.1 |
+| 14:10 | First fix (block netlify.com + CSS). Merged before its checks had started | R.1, R.4 |
+| 14:15 | Production run green (121). Preview run of the same commit red again: the drawer is same-origin and in a shadow root | R.3 |
+| 14:45 | Lab rebuilt to fail like CI; DOM-level fix; 3 shapes × control/fix proven | R.3 |
+| 15:05 | README with real screenshots, diagrams and verified numbers | R.5 |
+
 ---
+
+## Numbers (after R0, 29 Oct 2026)
+
+| Layer | Tests |
+| --- | --- |
+| Unit (Vitest) | 160 |
+| Integration, real Postgres (Vitest) | 46 |
+| API (Playwright request, preview + production) | 44 |
+| E2E UI, mocked API (mobile) | 50 |
+| E2E live against deploy preview + Postgres | 9 |
+| Accessibility, axe + keyboard (mobile + desktop) | 18 |
+| **Total** | **327** |
+
+Mutation tests so far: **24 deliberate bugs**. 22 caught right away; 2 survived (double-click guard 2.4, reconnect retry P.4) and both led to stronger tests that now catch them.
+Lab reproductions: every one is paired with a control run that must fail (R.3).
+
 
 ## Numbers (after PR #52)
 
