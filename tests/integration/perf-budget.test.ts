@@ -67,6 +67,16 @@ describe.skipIf(!POSTGRES)('performance budget – SQL round trips per request (
     expect(transfer.trips, 'transfer: BEGIN+lock, load, write, COMMIT').toBe(4) // was 9
   })
 
+  it('a warm instance does not leak listeners or connections, however many requests it serves', async () => {
+    const { poolStats } = await import('../../api/lib/store.ts')
+    const { cookie } = await call('POST', '/api/session')
+    for (let i = 0; i < 25; i++) await call('POST', '/api/session', cookie)
+
+    const stats = poolStats()!
+    expect(stats.errorListeners).toBe(1) // was 1 per request → MaxListenersExceededWarning (journal P.5)
+    expect(stats.total).toBeLessThanOrEqual(3) // never more than the pool max
+  })
+
   it('a pooled connection that died while the instance was frozen is replaced transparently', async () => {
     // A frozen Netlify instance only notices on the NEXT request that the database closed its idle
     // connection: the first query fails with "Connection terminated unexpectedly". Simulated exactly:

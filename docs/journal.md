@@ -139,6 +139,27 @@ Updated with every step. Newest phase at the bottom.
 - **Budgets in CI:** exact SQL round trips per endpoint (integration + real deploy) and API calls per screen (E2E). Numbers, not milliseconds, so they cannot be flaky.
 - **Lab:** dashboard at 100 ms RTT **2 684 → 530 ms**.
 
+### P.5 A warning nobody asked about was a memory leak
+- **What:** the local test run printed `MaxListenersExceededWarning: 11 error listeners added to [BoundPool]`. All tests were green.
+- **Root cause:** `pool.on('error', …)` was registered on every `getPool()` call, i.e. on **every request**, instead of once when the pool is created. A warm Netlify instance serving thousands of requests would have collected thousands of listeners.
+- **Fix:** register it once. The regression test sends 25 requests through one instance and asserts exactly 1 error listener and at most 3 connections. A mutant with the old line → red.
+- **Lesson:** warnings in test output are findings. A green run with noise in the log is not a clean run.
+
+### P.6 Day log – 29 Oct 2026 (performance day)
+| Time | What happened | Evidence |
+| --- | --- | --- |
+| morning | Complaint: "extremely slow". Instead of guessing: `Server-Timing` on every response, latency script, lab with a delay proxy | PR #54 |
+| 08:40 | Production baseline confirmed the lab: `fn=us-east-2 db=eu-central-1`, dashboard **3 486 ms**, cold **5 789 ms** | `scripts/latency.mjs` |
+| 10:30 | New Neon project in AWS us-east-2 → dashboard **836 ms** (warm run 687 ms). New password rotated after a screenshot leak | P.2 |
+| 11:00 | One API function, 2 requests to the dashboard, SQL 16→1 / 9→4. The parallel test caught a snapshot race I introduced (P.3), and a reconnect test turned out not to test anything (P.4) | PR #55 |
+| 12:50 | Merged #55. Production: dashboard **321 ms** (from 3 486 ms, **10.9×**), cold 824 ms (from 5 789 ms), DB 3–9 ms per request, no new connections | `docs/performance.md` |
+| 12:55 | A `MaxListenersExceededWarning` in the green test log turned out to be a listener leak per request | P.5, this PR |
+
+What is left is ≈ 155 ms per request of network between Slovakia and Ohio, i.e. physics, not code. A deliberate stop.
+
+Tests at the end of the day: 199 unit + integration (real Postgres), 71 E2E (mobile + desktop, mocked + live), API suite against every deploy preview.
+Mutation tests today: 9 deliberate bugs, 8 caught at once; 1 survived (the reconnect test) and led to a deterministic test that now catches it.
+
 ---
 
 ## Numbers (after PR #52)

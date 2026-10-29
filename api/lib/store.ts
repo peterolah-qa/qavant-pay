@@ -39,18 +39,28 @@ pg.types.setTypeParser(20, (value) => Number(value)) // BIGINT cents → number 
 let pool: pg.Pool | undefined
 function getPool(): pg.Pool {
   if (!process.env.DATABASE_URL) throw new StoreUnavailableError('DATABASE_URL is not configured')
-  pool ??= new pg.Pool({
-    connectionString: process.env.DATABASE_URL,
-    max: 3, // one serverless instance handles one request at a time; tests run several in parallel
-    // Keep the connection while the instance stays warm: opening a new one costs TCP + TLS + auth
-    // (≈ 70 ms in the same region, ≈ 600 ms across the Atlantic – measured, docs/performance.md).
-    idleTimeoutMillis: 240_000, // < 5 min, when Neon suspends an idle compute anyway
-    keepAlive: true,
-    application_name: process.env.QP_DB_APP_NAME ?? 'qavant-pay-api', // visible in pg_stat_activity
-  })
-  // a pooled connection that dies while idle must not crash the process – it is dropped and replaced
-  pool.on('error', () => {})
+  if (!pool) {
+    pool = new pg.Pool({
+      connectionString: process.env.DATABASE_URL,
+      max: 3, // one serverless instance handles one request at a time; tests run several in parallel
+      // Keep the connection while the instance stays warm: opening a new one costs TCP + TLS + auth
+      // (≈ 70 ms in the same region, ≈ 600 ms across the Atlantic – measured, docs/performance.md).
+      idleTimeoutMillis: 240_000, // < 5 min, when Neon suspends an idle compute anyway
+      keepAlive: true,
+      application_name: process.env.QP_DB_APP_NAME ?? 'qavant-pay-api', // visible in pg_stat_activity
+    })
+    // a pooled connection that dies while idle must not crash the process – it is dropped and replaced.
+    // Registered ONCE, when the pool is created (it used to be added on every request → listener leak).
+    pool.on('error', () => {})
+  }
   return pool
+}
+
+/** For tests and diagnostics: how the shared pool looks right now. */
+export function poolStats() {
+  return pool
+    ? { total: pool.totalCount, idle: pool.idleCount, errorListeners: pool.listenerCount('error') }
+    : null
 }
 
 type Queryable = { query(text: string, values?: unknown[]): Promise<pg.QueryResult>; completed: number }

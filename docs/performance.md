@@ -101,6 +101,25 @@ Lab, same conditions as the baseline (5 fresh visitors, p50):
 | transfer | 932 ms | 415 ms | 34 ms | 17 ms |
 | read (history, detail) | 310 ms | 106 ms | 13 ms | 7 ms |
 
+## Production result (after #55)
+
+`scripts/latency.mjs` against https://pay.qavant.dev, 5 fresh visitors, p50.
+
+| | baseline (#54) | DB next to functions | **one function, 2 requests (#55)** | total |
+| --- | ---: | ---: | ---: | ---: |
+| **open app → dashboard** | 3 486 ms | 836 ms | **321 ms** | **10.9×** |
+| first visitor (cold) | 5 789 ms | 3 249 ms | **824 ms** | **7×** |
+| app start / create sandbox | 1 809 ms | 179 ms | **155 ms** | 11.7× |
+| PIN | 932 ms | 193 ms | **166 ms** (+ dashboard data) | 5.6× |
+| transfer | 1 128 ms | 170 ms | **202 ms** | 5.6× |
+| DB time per request | up to 1 647 ms | up to 24 ms | **3–9 ms** | |
+| new DB connection (`connect`) | ≈ 620 ms | ≈ 70–110 ms | **0 ms** (pooled, warm) | |
+| SQL round trips create / PIN / transfer | 16 / 7 / 9 | 16 / 7 / 9 | **1 / 4 / 4** | |
+
+What is left is physics: about 155 ms per request is the trip from Slovakia to Ohio and back
+(`GET /api/health` without a database takes the same). Going further would need the functions in Europe
+(a Netlify Pro feature) or edge functions with an HTTP database driver – a deliberate stop here.
+
 ## Guard rails – so it does not get slow again
 
 - `tests/integration/perf-budget.test.ts` (CI, real Postgres): exact SQL round trips per endpoint
