@@ -22,5 +22,9 @@ await build({
   platform: 'node',
   format: 'esm',
   target: 'node22',
+  // pg is CommonJS and calls require('events') etc. – give the ESM bundle a real require(),
+  // so the bundle runs in plain Node too (local lab, scripts), not only after Netlify re-bundles it
+  banner: { js: "import { createRequire as __qpCreateRequire } from 'node:module'; const require = __qpCreateRequire(import.meta.url);" },
+  external: ['pg-native'], // optional native driver, never used
   logLevel: 'info',
 })

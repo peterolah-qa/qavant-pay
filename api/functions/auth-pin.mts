@@ -7,8 +7,9 @@ import { sessionExpired, unauthenticated } from '../lib/auth.ts'
 import { error, json, methodNotAllowed } from '../lib/http.ts'
 import { isExpired, readSessionId } from '../lib/session.ts'
 import { StoreUnavailableError, WriteConflictError, sandboxRepo } from '../lib/store.ts'
+import { withTiming } from '../lib/timing.ts'
 
-export default async (req: Request) => {
+const handler = async (req: Request) => {
   if (req.method !== 'POST') return methodNotAllowed('POST')
 
   const id = readSessionId(req.headers.get('cookie'))
@@ -58,3 +59,5 @@ export default async (req: Request) => {
       )
   }
 }
+
+export default withTiming(handler)

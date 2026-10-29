@@ -3,6 +3,7 @@ import { queryTransactions, type TxFilter } from '@qavant-pay/core'
 import { loadAuthenticatedSandbox } from '../lib/auth.ts'
 import { error, json, methodNotAllowed } from '../lib/http.ts'
 import { sandboxRepo } from '../lib/store.ts'
+import { withTiming } from '../lib/timing.ts'
 
 const MESSAGES = {
   INVALID_TYPE: 'type must be one of: all, income, spending, bills',
@@ -11,7 +12,7 @@ const MESSAGES = {
   INVALID_CURSOR: 'cursor does not match any transaction in this result set',
 } as const
 
-export default async (req: Request) => {
+const handler = async (req: Request) => {
   if (req.method !== 'GET') return methodNotAllowed('GET')
 
   const session = await loadAuthenticatedSandbox(req, sandboxRepo())
@@ -29,3 +30,5 @@ export default async (req: Request) => {
   if (!result.ok) return error(400, result.code, MESSAGES[result.code])
   return json(result.page, 200, { 'Cache-Control': 'no-store' })
 }
+
+export default withTiming(handler)
