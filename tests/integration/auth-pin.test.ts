@@ -8,9 +8,9 @@ let authPin: (req: Request) => Promise<Response>
 let account: (req: Request) => Promise<Response>
 
 beforeAll(async () => {
-  createSession = (await import('../../api/functions/demo-session.mts')).default
-  authPin = (await import('../../api/functions/auth-pin.mts')).default
-  account = (await import('../../api/functions/account.mts')).default
+  createSession = (await import('../../api/routes/demo-session.ts')).default
+  authPin = (await import('../../api/routes/auth-pin.ts')).default
+  account = (await import('../../api/routes/account.ts')).default
 })
 
 const URL = 'https://pay.qavant.dev'

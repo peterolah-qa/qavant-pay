@@ -1,9 +1,8 @@
 // GET /api/account → balance and masked IBAN of the visitor's sandbox.
-import { maskIban } from '@qavant-pay/core'
 import { loadAuthenticatedSandbox } from '../lib/auth.ts'
 import { json, methodNotAllowed } from '../lib/http.ts'
 import { sandboxRepo } from '../lib/store.ts'
-import { withTiming } from '../lib/timing.ts'
+import { accountView } from '../lib/views.ts'
 
 const handler = async (req: Request) => {
   if (req.method !== 'GET') return methodNotAllowed('GET')
@@ -11,12 +10,7 @@ const handler = async (req: Request) => {
   const session = await loadAuthenticatedSandbox(req, sandboxRepo())
   if (!session.ok) return session.response
 
-  const { holder, iban, balanceCents, currency } = session.sandbox.account
-  return json(
-    { holder, ibanMasked: maskIban(iban), balanceCents, currency },
-    200,
-    { 'Cache-Control': 'no-store' },
-  )
+  return json(accountView(session.sandbox), 200, { 'Cache-Control': 'no-store' })
 }
 
-export default withTiming(handler)
+export default handler

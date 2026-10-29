@@ -11,7 +11,6 @@ type State =
   | { kind: 'ready'; account: Account; recent: Transaction[] }
   | { kind: 'error' }
 
-
 /** Real links (open in new tab, screen readers) with client-side navigation on a normal click. */
 const go = (path: string) => (e: MouseEvent<HTMLAnchorElement>) => {
   e.preventDefault()
@@ -23,15 +22,11 @@ export function DashboardScreen({ onSessionLost }: { onSessionLost: () => void }
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([api.account(), api.transactions(4)]).then(([account, recent]) => {
+    void api.dashboard().then((res) => {
       if (cancelled) return
-      if (account.ok && recent.ok) {
-        setState({ kind: 'ready', account: account.data, recent: recent.data.items })
-      } else if (!account.ok && account.error.status === 401) {
-        onSessionLost()
-      } else {
-        setState({ kind: 'error' })
-      }
+      if (res.ok) setState({ kind: 'ready', account: res.data.account, recent: res.data.recent })
+      else if (res.error.status === 401) onSessionLost()
+      else setState({ kind: 'error' })
     })
     return () => {
       cancelled = true

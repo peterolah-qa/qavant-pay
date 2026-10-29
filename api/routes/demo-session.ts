@@ -4,7 +4,6 @@ import { seedSandbox } from '@qavant-pay/core'
 import { json, methodNotAllowed } from '../lib/http.ts'
 import { SESSION_TTL_MS, sessionCookie } from '../lib/session.ts'
 import { sandboxRepo } from '../lib/store.ts'
-import { withTiming } from '../lib/timing.ts'
 
 const handler = async (req: Request) => {
   if (req.method !== 'POST') return methodNotAllowed('POST')
@@ -20,4 +19,4 @@ const handler = async (req: Request) => {
   )
 }
 
-export default withTiming(handler)
+export default handler

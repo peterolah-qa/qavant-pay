@@ -21,7 +21,8 @@ test.describe('API · POST /api/auth/pin', () => {
 
     const ok = await enterPin(request, '1234')
     expect(ok.status()).toBe(200)
-    expect(await ok.json()).toEqual({ authenticated: true })
+    // the dashboard rides along with the PIN answer → the app needs no extra request (docs/performance.md)
+    expect(await ok.json()).toMatchObject({ authenticated: true, dashboard: { account: { balanceCents: 428052 } } })
 
     expect((await request.get('/api/account')).status()).toBe(200)
   })

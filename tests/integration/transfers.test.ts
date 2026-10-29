@@ -7,11 +7,11 @@ type Handler = (req: Request) => Promise<Response>
 let createSession: Handler, authPin: Handler, transfers: Handler, account: Handler, list: Handler
 
 beforeAll(async () => {
-  createSession = (await import('../../api/functions/demo-session.mts')).default
-  authPin = (await import('../../api/functions/auth-pin.mts')).default
-  transfers = (await import('../../api/functions/transfers.mts')).default
-  account = (await import('../../api/functions/account.mts')).default
-  list = (await import('../../api/functions/transactions.mts')).default
+  createSession = (await import('../../api/routes/demo-session.ts')).default
+  authPin = (await import('../../api/routes/auth-pin.ts')).default
+  transfers = (await import('../../api/routes/transfers.ts')).default
+  account = (await import('../../api/routes/account.ts')).default
+  list = (await import('../../api/routes/transactions.ts')).default
 })
 
 const URL = 'https://pay.qavant.dev'
