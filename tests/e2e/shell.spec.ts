@@ -2,6 +2,7 @@
 import { expect, test } from './fixtures.ts'
 import { expectNoA11yViolations } from './support/axe.ts'
 import { mockBank } from './support/mock-bank.ts'
+import { isDeployPreview, isNetlifyTooling } from './support/netlify.ts'
 
 const TABS = [
   { id: 'home', label: 'Home', path: /\/$/, screen: 'dashboard-screen' },
@@ -62,11 +63,15 @@ test.describe('App shell · redesign foundation (mocked API)', () => {
   })
 
   test('the app loads nothing from third parties – fonts, icons and images are self-hosted @security @p1', async ({ page, pin, baseURL }) => {
-    const origin = new URL(baseURL!).origin
+    const app = new URL(baseURL!)
     const foreign: string[] = []
     page.on('request', (r) => {
       const url = new URL(r.url())
-      if (url.origin !== origin && !url.protocol.startsWith('data')) foreign.push(r.url())
+      if (url.origin === app.origin || url.protocol.startsWith('data')) return
+      // Netlify's review drawer exists only on deploy previews (and is blocked there); the run against
+      // PRODUCTION after every merge checks with no exception at all.
+      if (isDeployPreview(baseURL) && isNetlifyTooling(url, app.host)) return
+      foreign.push(r.url())
     })
     await mockBank(page)
     await pin.open()
