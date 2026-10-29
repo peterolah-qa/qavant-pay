@@ -4,6 +4,7 @@
 import { loadAuthenticatedSandbox } from '../lib/auth.ts'
 import { error, json, methodNotAllowed } from '../lib/http.ts'
 import { sandboxRepo } from '../lib/store.ts'
+import { withTiming } from '../lib/timing.ts'
 
 const TX_ID = /^tx_[0-9a-f]{8}_\d{2,}$/
 
@@ -13,7 +14,7 @@ function readId(req: Request): string {
   return url.searchParams.get('id') ?? decodeURIComponent(url.pathname.split('/').pop() ?? '')
 }
 
-export default async (req: Request) => {
+const handler = async (req: Request) => {
   if (req.method !== 'GET') return methodNotAllowed('GET')
 
   const session = await loadAuthenticatedSandbox(req, sandboxRepo())
@@ -25,3 +26,5 @@ export default async (req: Request) => {
 
   return json(transaction, 200, { 'Cache-Control': 'no-store' })
 }
+
+export default withTiming(handler)

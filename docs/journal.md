@@ -103,6 +103,21 @@ Updated with every step. Newest phase at the bottom.
 
 ---
 
+## Phase 3b – performance
+
+### P.1 "It is extremely slow" → measure before touching anything
+- **Symptom:** pay.qavant.dev felt very slow, especially the first visit.
+- **Instead of guessing:** every API response now reports `Server-Timing` (SQL round trips, DB time, connect time, function and DB region). `scripts/latency.mjs` replays a real visitor journey and prints the numbers per step.
+- **Lab reproduction:** a TCP proxy adds 100 ms RTT between the functions and a local Postgres, the same as Ohio ↔ Frankfurt. Result: **2.7 s from opening the app to the dashboard**, with the database next to the function **0.1 s**. Creating a sandbox needed **16 SQL round trips**, a transfer **9**. Details in `docs/performance.md`.
+- **Root causes (found in docs and code, confirmed in the lab):**
+  1. Netlify runs functions in Ohio by default (region choice is Pro-only), while the Neon database is in Frankfurt. Every SQL round trip crosses the Atlantic.
+  2. Too many round trips per request: each read loads the whole sandbox, seed rows are inserted one by one, and transaction control statements each cost a separate trip.
+  3. Connections were closed after 10 s idle, 8 separate functions each have their own cold start, and Neon scales to zero after 5 min.
+- **Side finding:** the function bundles could not run in plain Node (`Dynamic require of "events"`). They only worked because Netlify re-bundles them. Fixed with a `createRequire` banner, so the lab can run the exact production bundle.
+- **Lesson:** "slow" is not a bug report, a number is. Instrument first, reproduce second, fix third, and keep the "before" numbers for the "after".
+
+---
+
 ## Numbers (after PR #52)
 
 | Layer | Tests |

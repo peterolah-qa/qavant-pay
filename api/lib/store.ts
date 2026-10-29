@@ -8,6 +8,7 @@
 // (Netlify Blobs could not guarantee this: its conditional writes are not atomic, see PR #13.)
 import pg from 'pg'
 import type { IdempotencyRecord, Sandbox, Transaction } from '@qavant-pay/core'
+import { recordConnect, recordQuery } from './timing.ts'
 
 export class WriteConflictError extends Error {
   constructor(message = 'The sandbox is busy, try again') {
@@ -42,7 +43,29 @@ function getPool(): pg.Pool {
   return pool
 }
 
-type Queryable = Pick<pg.PoolClient, 'query'>
+type Queryable = { query(text: string, values?: unknown[]): Promise<pg.QueryResult> }
+
+/** Counts every SQL round trip and its duration for the Server-Timing header. */
+function timed(db: Pick<pg.PoolClient, 'query'>): Queryable {
+  return {
+    query: async (text, values) => {
+      const start = performance.now()
+      try {
+        return await db.query(text, values)
+      } finally {
+        recordQuery(performance.now() - start)
+      }
+    },
+  }
+}
+
+/** A pooled connection; time spent here is TCP + TLS + auth when the pool has to open a new one. */
+async function connect(): Promise<{ db: Queryable; release: () => void }> {
+  const start = performance.now()
+  const client = await getPool().connect().catch(translate)
+  recordConnect(performance.now() - start)
+  return { db: timed(client), release: () => client.release() }
+}
 
 async function loadSandbox(db: Queryable, id: string, lock: boolean): Promise<Sandbox | null> {
   const { rows } = await db.query(`SELECT * FROM sandboxes WHERE id = $1 ${lock ? 'FOR UPDATE' : ''}`, [id])
@@ -147,14 +170,19 @@ function postgresRepo(): SandboxRepo {
   return {
     async get(id) {
       try {
-        return await loadSandbox(getPool(), id, false)
+        const { db, release } = await connect()
+        try {
+          return await loadSandbox(db, id, false)
+        } finally {
+          release()
+        }
       } catch (e) {
         return translate(e)
       }
     },
 
     async create(sandbox) {
-      const client = await getPool().connect().catch(translate)
+      const { db: client, release } = await connect()
       try {
         await client.query('BEGIN')
         // housekeeping: demo sandboxes live 24 h (keeps the free-tier database small)
@@ -179,12 +207,12 @@ function postgresRepo(): SandboxRepo {
         await client.query('ROLLBACK').catch(() => {})
         translate(e)
       } finally {
-        client.release()
+        release()
       }
     },
 
     async update(id, mutate) {
-      const client = await getPool().connect().catch(translate)
+      const { db: client, release } = await connect()
       try {
         await client.query('BEGIN')
         await client.query(`SET LOCAL lock_timeout = '${LOCK_TIMEOUT}'`)
@@ -205,7 +233,7 @@ function postgresRepo(): SandboxRepo {
         await client.query('ROLLBACK').catch(() => {})
         return translate(e)
       } finally {
-        client.release()
+        release()
       }
     },
   }

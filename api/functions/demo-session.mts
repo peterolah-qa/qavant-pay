@@ -4,8 +4,9 @@ import { seedSandbox } from '@qavant-pay/core'
 import { json, methodNotAllowed } from '../lib/http.ts'
 import { SESSION_TTL_MS, sessionCookie } from '../lib/session.ts'
 import { sandboxRepo } from '../lib/store.ts'
+import { withTiming } from '../lib/timing.ts'
 
-export default async (req: Request) => {
+const handler = async (req: Request) => {
   if (req.method !== 'POST') return methodNotAllowed('POST')
 
   const now = new Date()
@@ -18,3 +19,5 @@ export default async (req: Request) => {
     { 'Set-Cookie': sessionCookie(sandbox.id), 'Cache-Control': 'no-store' },
   )
 }
+
+export default withTiming(handler)

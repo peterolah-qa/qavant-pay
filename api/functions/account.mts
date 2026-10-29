@@ -3,8 +3,9 @@ import { maskIban } from '@qavant-pay/core'
 import { loadAuthenticatedSandbox } from '../lib/auth.ts'
 import { json, methodNotAllowed } from '../lib/http.ts'
 import { sandboxRepo } from '../lib/store.ts'
+import { withTiming } from '../lib/timing.ts'
 
-export default async (req: Request) => {
+const handler = async (req: Request) => {
   if (req.method !== 'GET') return methodNotAllowed('GET')
 
   const session = await loadAuthenticatedSandbox(req, sandboxRepo())
@@ -17,3 +18,5 @@ export default async (req: Request) => {
     { 'Cache-Control': 'no-store' },
   )
 }
+
+export default withTiming(handler)

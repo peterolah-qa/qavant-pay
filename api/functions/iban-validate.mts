@@ -1,13 +1,14 @@
 // POST /api/iban/validate  { "iban": "SK64 0900 …" }
 // The server re-validates with the SAME core function the UI uses – never trust the browser.
 import { validateIban } from '@qavant-pay/core'
+import { withTiming } from '../lib/timing.ts'
 
 const MAX_INPUT_LENGTH = 64
 
 const error = (status: number, code: string, message: string, headers: HeadersInit = {}) =>
   Response.json({ code, message }, { status, headers })
 
-export default async (req: Request) => {
+const handler = async (req: Request) => {
   if (req.method !== 'POST') {
     return error(405, 'METHOD_NOT_ALLOWED', 'Use POST', { Allow: 'POST' })
   }
@@ -26,3 +27,5 @@ export default async (req: Request) => {
 
   return Response.json(validateIban(iban))
 }
+
+export default withTiming(handler)
